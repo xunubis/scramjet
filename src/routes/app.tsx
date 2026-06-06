@@ -165,7 +165,9 @@ function ProxyApp() {
               <BlankTab onPick={(url) => navigate(t.id, url)} />
             ) : (
               <iframe
-                ref={(el) => (iframeRefs.current[t.id] = el)}
+                ref={(el) => {
+                  iframeRefs.current[t.id] = el;
+                }}
                 src={t.src}
                 title={t.title}
                 className="h-full w-full border-0 bg-white"
