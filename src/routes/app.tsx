@@ -220,36 +220,29 @@ function Toolbar({
   bareConfigured: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-border bg-sidebar px-3 py-2">
-      <Link to="/" className="flex items-center gap-2">
-        <div
-          className="h-5 w-5 rounded"
-          style={{ background: "var(--gradient-aurora)" }}
-        />
-        <span className="text-sm font-semibold tracking-tight">Prism</span>
+    <div className="flex items-center justify-end gap-3 px-4 py-1.5 text-xs">
+      <Link
+        to="/"
+        className="text-muted-foreground hover:text-foreground"
+        title="Home"
+      >
+        ←
       </Link>
-      <div className="flex items-center gap-3 text-xs">
+      <span className="flex items-center gap-1.5 text-muted-foreground">
         <span
-          className="flex items-center gap-1.5"
-          style={{ fontFamily: "var(--font-mono)" }}
-        >
-          <span
-            className={
-              "h-1.5 w-1.5 rounded-full " +
-              (bareConfigured ? "bg-primary" : "bg-destructive")
-            }
-          />
-          <span className="text-muted-foreground">
-            {bareConfigured ? "bare ready" : "bare unset"}
-          </span>
-        </span>
-        <button
-          onClick={onSettings}
-          className="rounded-md border border-border px-2.5 py-1 hover:bg-secondary"
-        >
-          Settings
-        </button>
-      </div>
+          className={
+            "h-1.5 w-1.5 rounded-full " +
+            (bareConfigured ? "bg-primary" : "bg-destructive")
+          }
+        />
+        {bareConfigured ? "bare ready" : "bare unset"}
+      </span>
+      <button
+        onClick={onSettings}
+        className="rounded-md px-2 py-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+      >
+        Settings
+      </button>
     </div>
   );
 }
