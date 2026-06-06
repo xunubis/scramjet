@@ -129,11 +129,6 @@ function ProxyApp() {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <Toolbar
-        onSettings={() => setSettingsOpen(true)}
-        bareConfigured={Boolean(settings.bareUrl)}
-      />
-
       <TabStrip
         tabs={tabs}
         activeId={activeId}
@@ -150,6 +145,8 @@ function ProxyApp() {
           onReload={() => reload(activeTab.id)}
           onSwitch={(e) => switchEngine(activeTab.id, e)}
           onFallback={() => fallback(activeTab.id)}
+          onSettings={() => setSettingsOpen(true)}
+          bareConfigured={Boolean(settings.bareUrl)}
         />
       )}
 
@@ -261,7 +258,7 @@ function TabStrip({
   onAdd: () => void;
 }) {
   return (
-    <div className="flex items-end gap-1 border-b border-border bg-background px-2 pt-2">
+    <div className="flex items-center gap-1 bg-background px-2 pt-2">
       {tabs.map((t) => {
         const active = t.id === activeId;
         return (
@@ -269,10 +266,10 @@ function TabStrip({
             key={t.id}
             onClick={() => onSelect(t.id)}
             className={
-              "group flex max-w-[200px] items-center gap-2 rounded-t-md border border-b-0 px-3 py-2 text-xs transition " +
+              "group flex max-w-[220px] min-w-[140px] items-center gap-2 rounded-md px-3 py-1.5 text-xs transition " +
               (active
-                ? "border-border bg-card text-foreground"
-                : "border-transparent bg-secondary/40 text-muted-foreground hover:text-foreground")
+                ? "bg-secondary text-foreground"
+                : "bg-transparent text-muted-foreground hover:bg-secondary/60 hover:text-foreground")
             }
           >
             <span
@@ -280,27 +277,27 @@ function TabStrip({
               style={{
                 background:
                   t.engine === "uv"
-                    ? "oklch(0.78 0.16 200)"
-                    : "oklch(0.68 0.22 320)",
+                    ? "oklch(0.72 0.19 50)"
+                    : "oklch(0.78 0.16 200)",
               }}
             />
-            <span className="truncate">{t.title}</span>
+            <span className="flex-1 truncate text-left">{t.title}</span>
             <span
               onClick={(e) => {
                 e.stopPropagation();
                 onClose(t.id);
               }}
-              className="ml-1 rounded p-0.5 opacity-60 hover:bg-secondary hover:opacity-100"
+              className="ml-1 rounded px-1 text-muted-foreground opacity-70 hover:bg-background hover:text-foreground hover:opacity-100"
               aria-label="Close tab"
             >
-              ✕
+              ×
             </span>
           </button>
         );
       })}
       <button
         onClick={onAdd}
-        className="ml-1 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+        className="ml-1 rounded-md px-2 py-1 text-base text-muted-foreground hover:bg-secondary hover:text-foreground"
         aria-label="New tab"
       >
         +
@@ -315,38 +312,41 @@ function AddressBar({
   onReload,
   onSwitch,
   onFallback,
+  onSettings,
+  bareConfigured,
 }: {
   tab: Tab;
   onNavigate: (addr: string) => void;
   onReload: () => void;
   onSwitch: (e: ProxyEngine) => void;
   onFallback: () => void;
+  onSettings: () => void;
+  bareConfigured: boolean;
 }) {
   const [value, setValue] = useState(tab.address);
   useEffect(() => setValue(tab.address), [tab.id, tab.address]);
 
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
-      <button
-        onClick={onReload}
-        className="rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-        aria-label="Reload"
-      >
-        ↻
-      </button>
+    <div className="flex items-center gap-2 bg-background px-3 py-2">
+      <div className="flex items-center gap-1 pr-1 text-muted-foreground">
+        <NavIconBtn label="Back">←</NavIconBtn>
+        <NavIconBtn label="Forward">→</NavIconBtn>
+        <NavIconBtn label="Reload" onClick={onReload}>↻</NavIconBtn>
+        <NavIconBtn label="Home" onClick={() => onNavigate("")}>⌂</NavIconBtn>
+      </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           onNavigate(value);
         }}
-        className="flex flex-1 items-center rounded-md border border-border bg-background px-3 py-1.5 focus-within:border-primary/60"
+        className="flex flex-1 items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 focus-within:border-primary/60"
       >
+        <span className="text-muted-foreground" aria-hidden>🔒</span>
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Enter URL — e.g. example.com"
+          placeholder="Search the web"
           className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          style={{ fontFamily: "var(--font-mono)" }}
           spellCheck={false}
         />
         {tab.loading && (
@@ -354,11 +354,11 @@ function AddressBar({
         )}
       </form>
 
-      <div className="flex overflow-hidden rounded-md border border-border text-xs">
+      <div className="flex overflow-hidden rounded-full border border-border text-[11px]">
         <button
           onClick={() => onSwitch("uv")}
           className={
-            "px-2.5 py-1.5 " +
+            "px-2.5 py-1 " +
             (tab.engine === "uv"
               ? "bg-primary text-primary-foreground"
               : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground")
@@ -369,7 +369,7 @@ function AddressBar({
         <button
           onClick={() => onSwitch("scramjet")}
           className={
-            "px-2.5 py-1.5 " +
+            "px-2.5 py-1 " +
             (tab.engine === "scramjet"
               ? "bg-accent text-accent-foreground"
               : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground")
@@ -382,12 +382,39 @@ function AddressBar({
       <button
         onClick={onFallback}
         disabled={!tab.address}
-        className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         title="Reload through the other engine"
       >
-        Fallback ↻
+        ↻ Fallback
+      </button>
+      <button
+        onClick={onSettings}
+        className="rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+        title={bareConfigured ? "bare ready" : "bare unset"}
+      >
+        ⚙
       </button>
     </div>
+  );
+}
+
+function NavIconBtn({
+  children,
+  label,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      className="flex h-8 w-8 items-center justify-center rounded-full text-base text-muted-foreground hover:bg-secondary hover:text-foreground"
+    >
+      {children}
+    </button>
   );
 }
 
