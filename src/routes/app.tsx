@@ -1,0 +1,527 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  buildProxiedUrl,
+  DEFAULT_SETTINGS,
+  engineLabel,
+  ensureEngineReady,
+  loadSettings,
+  otherEngine,
+  type ProxyEngine,
+  type ProxySettings,
+  saveSettings,
+} from "@/lib/proxy";
+
+export const Route = createFileRoute("/app")({
+  head: () => ({
+    meta: [
+      { title: "Prism — Browser" },
+      { name: "description", content: "Dual-engine web proxy browser." },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+  component: ProxyApp,
+});
+
+interface Tab {
+  id: string;
+  title: string;
+  address: string; // what the user typed
+  src: string; // resolved proxied iframe src (empty = blank/new tab)
+  engine: ProxyEngine;
+  loading: boolean;
+  errored: boolean;
+}
+
+function newTab(engine: ProxyEngine): Tab {
+  return {
+    id: crypto.randomUUID(),
+    title: "New tab",
+    address: "",
+    src: "",
+    engine,
+    loading: false,
+    errored: false,
+  };
+}
+
+function ProxyApp() {
+  const [settings, setSettings] = useState<ProxySettings>(DEFAULT_SETTINGS);
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const iframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
+
+  // Hydrate from localStorage on mount
+  useEffect(() => {
+    const s = loadSettings();
+    setSettings(s);
+    const first = newTab(s.defaultEngine);
+    setTabs([first]);
+    setActiveId(first.id);
+    if (!s.bareUrl) setSettingsOpen(true);
+  }, []);
+
+  const activeTab = tabs.find((t) => t.id === activeId) ?? null;
+
+  function updateTab(id: string, patch: Partial<Tab>) {
+    setTabs((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  }
+
+  async function navigate(id: string, rawAddress: string) {
+    const address = rawAddress.trim();
+    if (!address) return;
+    const tab = tabs.find((t) => t.id === id);
+    if (!tab) return;
+    if (!settings.bareUrl) {
+      setSettingsOpen(true);
+      return;
+    }
+    try {
+      updateTab(id, { loading: true, errored: false, address });
+      await ensureEngineReady(tab.engine, settings.bareUrl);
+      const src = buildProxiedUrl(tab.engine, address);
+      updateTab(id, { src, title: address });
+    } catch (err) {
+      console.error(err);
+      updateTab(id, { errored: true, loading: false });
+    }
+  }
+
+  function switchEngine(id: string, engine: ProxyEngine) {
+    updateTab(id, { engine });
+    const t = tabs.find((x) => x.id === id);
+    if (t && t.address) {
+      // Re-navigate through the new engine.
+      setTimeout(() => navigate(id, t.address), 0);
+    }
+  }
+
+  function closeTab(id: string) {
+    setTabs((ts) => {
+      const next = ts.filter((t) => t.id !== id);
+      if (next.length === 0) {
+        const t = newTab(settings.defaultEngine);
+        setActiveId(t.id);
+        return [t];
+      }
+      if (id === activeId) setActiveId(next[next.length - 1].id);
+      return next;
+    });
+  }
+
+  function addTab() {
+    const t = newTab(settings.defaultEngine);
+    setTabs((ts) => [...ts, t]);
+    setActiveId(t.id);
+  }
+
+  function reload(id: string) {
+    const ref = iframeRefs.current[id];
+    if (ref?.contentWindow) ref.contentWindow.location.reload();
+  }
+
+  function fallback(id: string) {
+    const t = tabs.find((x) => x.id === id);
+    if (!t) return;
+    switchEngine(id, otherEngine(t.engine));
+  }
+
+  return (
+    <div className="flex h-screen flex-col bg-background text-foreground">
+      <Toolbar
+        onSettings={() => setSettingsOpen(true)}
+        bareConfigured={Boolean(settings.bareUrl)}
+      />
+
+      <TabStrip
+        tabs={tabs}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onClose={closeTab}
+        onAdd={addTab}
+      />
+
+      {activeTab && (
+        <AddressBar
+          key={activeTab.id}
+          tab={activeTab}
+          onNavigate={(addr) => navigate(activeTab.id, addr)}
+          onReload={() => reload(activeTab.id)}
+          onSwitch={(e) => switchEngine(activeTab.id, e)}
+          onFallback={() => fallback(activeTab.id)}
+        />
+      )}
+
+      <div className="relative flex-1 bg-card">
+        {tabs.map((t) => (
+          <div
+            key={t.id}
+            className={
+              "absolute inset-0 " + (t.id === activeId ? "block" : "hidden")
+            }
+          >
+            {!t.src ? (
+              <BlankTab onPick={(url) => navigate(t.id, url)} />
+            ) : (
+              <iframe
+                ref={(el) => {
+                  iframeRefs.current[t.id] = el;
+                }}
+                src={t.src}
+                title={t.title}
+                className="h-full w-full border-0 bg-white"
+                onLoad={() => updateTab(t.id, { loading: false })}
+                sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation allow-same-origin allow-scripts allow-downloads"
+              />
+            )}
+            {t.errored && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm">
+                <div className="max-w-md rounded-lg border border-destructive/40 bg-card p-6 text-center">
+                  <p className="text-sm text-destructive">
+                    Failed to load through {engineLabel(t.engine)}.
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Check that your bare server is reachable, or try the other engine.
+                  </p>
+                  <button
+                    onClick={() => fallback(t.id)}
+                    className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    Retry with {engineLabel(otherEngine(t.engine))}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {settingsOpen && (
+        <SettingsSheet
+          settings={settings}
+          onClose={() => setSettingsOpen(false)}
+          onSave={(s) => {
+            setSettings(s);
+            saveSettings(s);
+            setSettingsOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Toolbar({
+  onSettings,
+  bareConfigured,
+}: {
+  onSettings: () => void;
+  bareConfigured: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-border bg-sidebar px-3 py-2">
+      <Link to="/" className="flex items-center gap-2">
+        <div
+          className="h-5 w-5 rounded"
+          style={{ background: "var(--gradient-aurora)" }}
+        />
+        <span className="text-sm font-semibold tracking-tight">Prism</span>
+      </Link>
+      <div className="flex items-center gap-3 text-xs">
+        <span
+          className="flex items-center gap-1.5"
+          style={{ fontFamily: "var(--font-mono)" }}
+        >
+          <span
+            className={
+              "h-1.5 w-1.5 rounded-full " +
+              (bareConfigured ? "bg-primary" : "bg-destructive")
+            }
+          />
+          <span className="text-muted-foreground">
+            {bareConfigured ? "bare ready" : "bare unset"}
+          </span>
+        </span>
+        <button
+          onClick={onSettings}
+          className="rounded-md border border-border px-2.5 py-1 hover:bg-secondary"
+        >
+          Settings
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TabStrip({
+  tabs,
+  activeId,
+  onSelect,
+  onClose,
+  onAdd,
+}: {
+  tabs: Tab[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  onClose: (id: string) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex items-end gap-1 border-b border-border bg-background px-2 pt-2">
+      {tabs.map((t) => {
+        const active = t.id === activeId;
+        return (
+          <button
+            key={t.id}
+            onClick={() => onSelect(t.id)}
+            className={
+              "group flex max-w-[200px] items-center gap-2 rounded-t-md border border-b-0 px-3 py-2 text-xs transition " +
+              (active
+                ? "border-border bg-card text-foreground"
+                : "border-transparent bg-secondary/40 text-muted-foreground hover:text-foreground")
+            }
+          >
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{
+                background:
+                  t.engine === "uv"
+                    ? "oklch(0.78 0.16 200)"
+                    : "oklch(0.68 0.22 320)",
+              }}
+            />
+            <span className="truncate">{t.title}</span>
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose(t.id);
+              }}
+              className="ml-1 rounded p-0.5 opacity-60 hover:bg-secondary hover:opacity-100"
+              aria-label="Close tab"
+            >
+              ✕
+            </span>
+          </button>
+        );
+      })}
+      <button
+        onClick={onAdd}
+        className="ml-1 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+        aria-label="New tab"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+function AddressBar({
+  tab,
+  onNavigate,
+  onReload,
+  onSwitch,
+  onFallback,
+}: {
+  tab: Tab;
+  onNavigate: (addr: string) => void;
+  onReload: () => void;
+  onSwitch: (e: ProxyEngine) => void;
+  onFallback: () => void;
+}) {
+  const [value, setValue] = useState(tab.address);
+  useEffect(() => setValue(tab.address), [tab.id, tab.address]);
+
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
+      <button
+        onClick={onReload}
+        className="rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+        aria-label="Reload"
+      >
+        ↻
+      </button>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onNavigate(value);
+        }}
+        className="flex flex-1 items-center rounded-md border border-border bg-background px-3 py-1.5 focus-within:border-primary/60"
+      >
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Enter URL — e.g. example.com"
+          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          style={{ fontFamily: "var(--font-mono)" }}
+          spellCheck={false}
+        />
+        {tab.loading && (
+          <span className="ml-2 text-xs text-muted-foreground">loading…</span>
+        )}
+      </form>
+
+      <div className="flex overflow-hidden rounded-md border border-border text-xs">
+        <button
+          onClick={() => onSwitch("uv")}
+          className={
+            "px-2.5 py-1.5 " +
+            (tab.engine === "uv"
+              ? "bg-primary text-primary-foreground"
+              : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground")
+          }
+        >
+          UV
+        </button>
+        <button
+          onClick={() => onSwitch("scramjet")}
+          className={
+            "px-2.5 py-1.5 " +
+            (tab.engine === "scramjet"
+              ? "bg-accent text-accent-foreground"
+              : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground")
+          }
+        >
+          SJ
+        </button>
+      </div>
+
+      <button
+        onClick={onFallback}
+        disabled={!tab.address}
+        className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        title="Reload through the other engine"
+      >
+        Fallback ↻
+      </button>
+    </div>
+  );
+}
+
+function BlankTab({ onPick }: { onPick: (url: string) => void }) {
+  const suggestions = ["wikipedia.org", "duckduckgo.com", "news.ycombinator.com"];
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-6 bg-background text-center">
+      <div>
+        <div
+          className="mx-auto h-12 w-12 rounded-xl"
+          style={{ background: "var(--gradient-aurora)", boxShadow: "var(--shadow-glow)" }}
+        />
+        <h2 className="mt-4 text-2xl font-semibold tracking-tight">New tab</h2>
+        <p
+          className="mt-2 text-sm text-muted-foreground"
+          style={{ fontFamily: "var(--font-mono)" }}
+        >
+          Type a URL above, or pick one below.
+        </p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-2">
+        {suggestions.map((s) => (
+          <button
+            key={s}
+            onClick={() => onPick(s)}
+            className="rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:border-primary/40"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SettingsSheet({
+  settings,
+  onClose,
+  onSave,
+}: {
+  settings: ProxySettings;
+  onClose: () => void;
+  onSave: (s: ProxySettings) => void;
+}) {
+  const [draft, setDraft] = useState(settings);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Settings</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Both engines route through your bare server.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-secondary"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-6 space-y-5">
+          <div>
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Bare server URL
+            </label>
+            <input
+              value={draft.bareUrl}
+              onChange={(e) => setDraft({ ...draft, bareUrl: e.target.value })}
+              placeholder="https://bare.example.com/"
+              className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
+              style={{ fontFamily: "var(--font-mono)" }}
+              spellCheck={false}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Run <code className="text-foreground">@tomphttp/bare-server-node</code>{" "}
+              and paste its public URL (must end with <code>/</code>).
+            </p>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Default engine
+            </label>
+            <div className="mt-2 flex overflow-hidden rounded-md border border-border">
+              {(["uv", "scramjet"] as ProxyEngine[]).map((e) => (
+                <button
+                  key={e}
+                  onClick={() => setDraft({ ...draft, defaultEngine: e })}
+                  className={
+                    "flex-1 px-3 py-2 text-sm " +
+                    (draft.defaultEngine === e
+                      ? e === "uv"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-secondary")
+                  }
+                >
+                  {engineLabel(e)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              const bareUrl = draft.bareUrl.trim();
+              const normalized = bareUrl && !bareUrl.endsWith("/") ? bareUrl + "/" : bareUrl;
+              onSave({ ...draft, bareUrl: normalized });
+            }}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
