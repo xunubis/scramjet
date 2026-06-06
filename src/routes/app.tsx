@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   buildProxiedUrl,
@@ -205,41 +205,6 @@ function ProxyApp() {
           }}
         />
       )}
-    </div>
-  );
-}
-
-function Toolbar({
-  onSettings,
-  bareConfigured,
-}: {
-  onSettings: () => void;
-  bareConfigured: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-end gap-3 px-4 py-1.5 text-xs">
-      <Link
-        to="/"
-        className="text-muted-foreground hover:text-foreground"
-        title="Home"
-      >
-        ←
-      </Link>
-      <span className="flex items-center gap-1.5 text-muted-foreground">
-        <span
-          className={
-            "h-1.5 w-1.5 rounded-full " +
-            (bareConfigured ? "bg-primary" : "bg-destructive")
-          }
-        />
-        {bareConfigured ? "bare ready" : "bare unset"}
-      </span>
-      <button
-        onClick={onSettings}
-        className="rounded-md px-2 py-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-      >
-        Settings
-      </button>
     </div>
   );
 }
