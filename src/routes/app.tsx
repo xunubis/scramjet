@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   buildProxiedUrl,
@@ -129,11 +129,6 @@ function ProxyApp() {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <Toolbar
-        onSettings={() => setSettingsOpen(true)}
-        bareConfigured={Boolean(settings.bareUrl)}
-      />
-
       <TabStrip
         tabs={tabs}
         activeId={activeId}
@@ -150,6 +145,8 @@ function ProxyApp() {
           onReload={() => reload(activeTab.id)}
           onSwitch={(e) => switchEngine(activeTab.id, e)}
           onFallback={() => fallback(activeTab.id)}
+          onSettings={() => setSettingsOpen(true)}
+          bareConfigured={Boolean(settings.bareUrl)}
         />
       )}
 
@@ -212,48 +209,6 @@ function ProxyApp() {
   );
 }
 
-function Toolbar({
-  onSettings,
-  bareConfigured,
-}: {
-  onSettings: () => void;
-  bareConfigured: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-border bg-sidebar px-3 py-2">
-      <Link to="/" className="flex items-center gap-2">
-        <div
-          className="h-5 w-5 rounded"
-          style={{ background: "var(--gradient-aurora)" }}
-        />
-        <span className="text-sm font-semibold tracking-tight">Prism</span>
-      </Link>
-      <div className="flex items-center gap-3 text-xs">
-        <span
-          className="flex items-center gap-1.5"
-          style={{ fontFamily: "var(--font-mono)" }}
-        >
-          <span
-            className={
-              "h-1.5 w-1.5 rounded-full " +
-              (bareConfigured ? "bg-primary" : "bg-destructive")
-            }
-          />
-          <span className="text-muted-foreground">
-            {bareConfigured ? "bare ready" : "bare unset"}
-          </span>
-        </span>
-        <button
-          onClick={onSettings}
-          className="rounded-md border border-border px-2.5 py-1 hover:bg-secondary"
-        >
-          Settings
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function TabStrip({
   tabs,
   activeId,
@@ -268,7 +223,7 @@ function TabStrip({
   onAdd: () => void;
 }) {
   return (
-    <div className="flex items-end gap-1 border-b border-border bg-background px-2 pt-2">
+    <div className="flex items-center gap-1 bg-background px-2 pt-2">
       {tabs.map((t) => {
         const active = t.id === activeId;
         return (
@@ -276,10 +231,10 @@ function TabStrip({
             key={t.id}
             onClick={() => onSelect(t.id)}
             className={
-              "group flex max-w-[200px] items-center gap-2 rounded-t-md border border-b-0 px-3 py-2 text-xs transition " +
+              "group flex max-w-[220px] min-w-[140px] items-center gap-2 rounded-md px-3 py-1.5 text-xs transition " +
               (active
-                ? "border-border bg-card text-foreground"
-                : "border-transparent bg-secondary/40 text-muted-foreground hover:text-foreground")
+                ? "bg-secondary text-foreground"
+                : "bg-transparent text-muted-foreground hover:bg-secondary/60 hover:text-foreground")
             }
           >
             <span
@@ -287,27 +242,27 @@ function TabStrip({
               style={{
                 background:
                   t.engine === "uv"
-                    ? "oklch(0.78 0.16 200)"
-                    : "oklch(0.68 0.22 320)",
+                    ? "oklch(0.72 0.19 50)"
+                    : "oklch(0.78 0.16 200)",
               }}
             />
-            <span className="truncate">{t.title}</span>
+            <span className="flex-1 truncate text-left">{t.title}</span>
             <span
               onClick={(e) => {
                 e.stopPropagation();
                 onClose(t.id);
               }}
-              className="ml-1 rounded p-0.5 opacity-60 hover:bg-secondary hover:opacity-100"
+              className="ml-1 rounded px-1 text-muted-foreground opacity-70 hover:bg-background hover:text-foreground hover:opacity-100"
               aria-label="Close tab"
             >
-              ✕
+              ×
             </span>
           </button>
         );
       })}
       <button
         onClick={onAdd}
-        className="ml-1 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+        className="ml-1 rounded-md px-2 py-1 text-base text-muted-foreground hover:bg-secondary hover:text-foreground"
         aria-label="New tab"
       >
         +
@@ -322,38 +277,41 @@ function AddressBar({
   onReload,
   onSwitch,
   onFallback,
+  onSettings,
+  bareConfigured,
 }: {
   tab: Tab;
   onNavigate: (addr: string) => void;
   onReload: () => void;
   onSwitch: (e: ProxyEngine) => void;
   onFallback: () => void;
+  onSettings: () => void;
+  bareConfigured: boolean;
 }) {
   const [value, setValue] = useState(tab.address);
   useEffect(() => setValue(tab.address), [tab.id, tab.address]);
 
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
-      <button
-        onClick={onReload}
-        className="rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-        aria-label="Reload"
-      >
-        ↻
-      </button>
+    <div className="flex items-center gap-2 bg-background px-3 py-2">
+      <div className="flex items-center gap-1 pr-1 text-muted-foreground">
+        <NavIconBtn label="Back">←</NavIconBtn>
+        <NavIconBtn label="Forward">→</NavIconBtn>
+        <NavIconBtn label="Reload" onClick={onReload}>↻</NavIconBtn>
+        <NavIconBtn label="Home" onClick={() => onNavigate("")}>⌂</NavIconBtn>
+      </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           onNavigate(value);
         }}
-        className="flex flex-1 items-center rounded-md border border-border bg-background px-3 py-1.5 focus-within:border-primary/60"
+        className="flex flex-1 items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 focus-within:border-primary/60"
       >
+        <span className="text-muted-foreground" aria-hidden>🔒</span>
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Enter URL — e.g. example.com"
+          placeholder="Search the web"
           className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          style={{ fontFamily: "var(--font-mono)" }}
           spellCheck={false}
         />
         {tab.loading && (
@@ -361,11 +319,11 @@ function AddressBar({
         )}
       </form>
 
-      <div className="flex overflow-hidden rounded-md border border-border text-xs">
+      <div className="flex overflow-hidden rounded-full border border-border text-[11px]">
         <button
           onClick={() => onSwitch("uv")}
           className={
-            "px-2.5 py-1.5 " +
+            "px-2.5 py-1 " +
             (tab.engine === "uv"
               ? "bg-primary text-primary-foreground"
               : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground")
@@ -376,7 +334,7 @@ function AddressBar({
         <button
           onClick={() => onSwitch("scramjet")}
           className={
-            "px-2.5 py-1.5 " +
+            "px-2.5 py-1 " +
             (tab.engine === "scramjet"
               ? "bg-accent text-accent-foreground"
               : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground")
@@ -389,41 +347,114 @@ function AddressBar({
       <button
         onClick={onFallback}
         disabled={!tab.address}
-        className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         title="Reload through the other engine"
       >
-        Fallback ↻
+        ↻ Fallback
+      </button>
+      <button
+        onClick={onSettings}
+        className="rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+        title={bareConfigured ? "bare ready" : "bare unset"}
+      >
+        ⚙
       </button>
     </div>
   );
 }
 
-function BlankTab({ onPick }: { onPick: (url: string) => void }) {
-  const suggestions = ["wikipedia.org", "duckduckgo.com", "news.ycombinator.com"];
+function NavIconBtn({
+  children,
+  label,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 bg-background text-center">
-      <div>
+    <button
+      onClick={onClick}
+      aria-label={label}
+      className="flex h-8 w-8 items-center justify-center rounded-full text-base text-muted-foreground hover:bg-secondary hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
+}
+
+function BlankTab({ onPick }: { onPick: (url: string) => void }) {
+  const [q, setQ] = useState("");
+  const shortcuts = [
+    { label: "TikTok", url: "tiktok.com", letter: "T", color: "oklch(0.55 0.18 20)" },
+    { label: "Discord", url: "discord.com", letter: "D", color: "oklch(0.55 0.16 270)" },
+    { label: "GitHub", url: "github.com", letter: "G", color: "oklch(0.3 0.01 280)" },
+    { label: "YouTube", url: "youtube.com", letter: "Y", color: "oklch(0.55 0.22 25)" },
+    { label: "Wikipedia", url: "wikipedia.org", letter: "W", color: "oklch(0.3 0.01 280)" },
+  ];
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const v = q.trim();
+    if (!v) return;
+    const looksLikeUrl = /^https?:\/\//i.test(v) || /\.[a-z]{2,}$/i.test(v);
+    onPick(looksLikeUrl ? v : `duckduckgo.com/?q=${encodeURIComponent(v)}`);
+  }
+
+  return (
+    <div
+      className="relative flex h-full flex-col items-center justify-center bg-background px-6 text-center"
+      style={{ backgroundImage: "var(--gradient-aurora)" }}
+    >
+      <h1
+        className="select-none text-7xl font-bold tracking-tight text-foreground sm:text-8xl"
+        style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.04em" }}
+      >
+        Prism
+        <span style={{ color: "var(--primary)" }}>.</span>
+      </h1>
+
+      <form
+        onSubmit={submit}
+        className="mt-10 flex w-full max-w-2xl items-center gap-3 rounded-full border bg-card/70 px-5 py-3 backdrop-blur transition focus-within:border-primary/60"
+        style={{ borderColor: "color-mix(in oklab, var(--primary) 35%, transparent)" }}
+      >
         <div
-          className="mx-auto h-12 w-12 rounded-xl"
-          style={{ background: "var(--gradient-aurora)", boxShadow: "var(--shadow-glow)" }}
-        />
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">New tab</h2>
-        <p
-          className="mt-2 text-sm text-muted-foreground"
-          style={{ fontFamily: "var(--font-mono)" }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-primary-foreground"
+          style={{ background: "var(--primary)" }}
+          aria-hidden
         >
-          Type a URL above, or pick one below.
-        </p>
-      </div>
-      <div className="flex flex-wrap justify-center gap-2">
-        {suggestions.map((s) => (
+          P
+        </div>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search DuckDuckGo or type a URL…"
+          className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
+          autoFocus
+          spellCheck={false}
+        />
+      </form>
+
+      <div className="mt-12 flex flex-wrap items-start justify-center gap-6">
+        {shortcuts.map((s) => (
           <button
-            key={s}
-            onClick={() => onPick(s)}
-            className="rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:border-primary/40"
-            style={{ fontFamily: "var(--font-mono)" }}
+            key={s.label}
+            onClick={() => onPick(s.url)}
+            className="group flex w-20 flex-col items-center gap-2"
           >
-            {s}
+            <span
+              className="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-semibold text-foreground transition group-hover:scale-105"
+              style={{
+                background: s.color,
+                boxShadow: "0 8px 24px -12px rgba(0,0,0,0.6)",
+              }}
+            >
+              {s.letter}
+            </span>
+            <span className="text-xs text-muted-foreground group-hover:text-foreground">
+              {s.label}
+            </span>
           </button>
         ))}
       </div>
