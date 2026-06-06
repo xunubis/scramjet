@@ -384,31 +384,77 @@ function NavIconBtn({
 }
 
 function BlankTab({ onPick }: { onPick: (url: string) => void }) {
-  const suggestions = ["wikipedia.org", "duckduckgo.com", "news.ycombinator.com"];
+  const [q, setQ] = useState("");
+  const shortcuts = [
+    { label: "TikTok", url: "tiktok.com", letter: "T", color: "oklch(0.55 0.18 20)" },
+    { label: "Discord", url: "discord.com", letter: "D", color: "oklch(0.55 0.16 270)" },
+    { label: "GitHub", url: "github.com", letter: "G", color: "oklch(0.3 0.01 280)" },
+    { label: "YouTube", url: "youtube.com", letter: "Y", color: "oklch(0.55 0.22 25)" },
+    { label: "Wikipedia", url: "wikipedia.org", letter: "W", color: "oklch(0.3 0.01 280)" },
+  ];
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const v = q.trim();
+    if (!v) return;
+    const looksLikeUrl = /^https?:\/\//i.test(v) || /\.[a-z]{2,}$/i.test(v);
+    onPick(looksLikeUrl ? v : `duckduckgo.com/?q=${encodeURIComponent(v)}`);
+  }
+
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 bg-background text-center">
-      <div>
+    <div
+      className="relative flex h-full flex-col items-center justify-center bg-background px-6 text-center"
+      style={{ backgroundImage: "var(--gradient-aurora)" }}
+    >
+      <h1
+        className="select-none text-7xl font-bold tracking-tight text-foreground sm:text-8xl"
+        style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.04em" }}
+      >
+        Prism
+        <span style={{ color: "var(--primary)" }}>.</span>
+      </h1>
+
+      <form
+        onSubmit={submit}
+        className="mt-10 flex w-full max-w-2xl items-center gap-3 rounded-full border bg-card/70 px-5 py-3 backdrop-blur transition focus-within:border-primary/60"
+        style={{ borderColor: "color-mix(in oklab, var(--primary) 35%, transparent)" }}
+      >
         <div
-          className="mx-auto h-12 w-12 rounded-xl"
-          style={{ background: "var(--gradient-aurora)", boxShadow: "var(--shadow-glow)" }}
-        />
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">New tab</h2>
-        <p
-          className="mt-2 text-sm text-muted-foreground"
-          style={{ fontFamily: "var(--font-mono)" }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-primary-foreground"
+          style={{ background: "var(--primary)" }}
+          aria-hidden
         >
-          Type a URL above, or pick one below.
-        </p>
-      </div>
-      <div className="flex flex-wrap justify-center gap-2">
-        {suggestions.map((s) => (
+          P
+        </div>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search DuckDuckGo or type a URL…"
+          className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
+          autoFocus
+          spellCheck={false}
+        />
+      </form>
+
+      <div className="mt-12 flex flex-wrap items-start justify-center gap-6">
+        {shortcuts.map((s) => (
           <button
-            key={s}
-            onClick={() => onPick(s)}
-            className="rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:border-primary/40"
-            style={{ fontFamily: "var(--font-mono)" }}
+            key={s.label}
+            onClick={() => onPick(s.url)}
+            className="group flex w-20 flex-col items-center gap-2"
           >
-            {s}
+            <span
+              className="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-semibold text-foreground transition group-hover:scale-105"
+              style={{
+                background: s.color,
+                boxShadow: "0 8px 24px -12px rgba(0,0,0,0.6)",
+              }}
+            >
+              {s.letter}
+            </span>
+            <span className="text-xs text-muted-foreground group-hover:text-foreground">
+              {s.label}
+            </span>
           </button>
         ))}
       </div>
