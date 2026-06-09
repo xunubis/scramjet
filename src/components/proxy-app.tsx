@@ -33,7 +33,7 @@ function newTab(engine: ProxyEngine): Tab {
   };
 }
 
-function ProxyApp() {
+export function ProxyApp() {
   const [settings, setSettings] = useState<ProxySettings>(DEFAULT_SETTINGS);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
