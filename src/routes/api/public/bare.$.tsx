@@ -121,7 +121,7 @@ async function dispatch({ request }: { request: Request }): Promise<Response> {
   return indexResponse();
 }
 
-export const Route = createFileRoute("/api/public/bare/v3/$")({
+export const Route = createFileRoute("/api/public/bare/$")({
   server: {
     handlers: {
       GET: dispatch,
