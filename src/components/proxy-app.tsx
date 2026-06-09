@@ -491,8 +491,10 @@ function SettingsSheet({
               spellCheck={false}
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              Run <code className="text-foreground">@tomphttp/bare-server-node</code>{" "}
-              and paste its public URL (must end with <code>/</code>).
+              Prism ships with a built-in bare server at{" "}
+              <code className="text-foreground">/api/public/bare/v3/</code> on
+              this same domain — leave as is for the zero-setup default, or
+              paste your own bare-v3 URL (must end with <code>/</code>).
             </p>
           </div>
 
