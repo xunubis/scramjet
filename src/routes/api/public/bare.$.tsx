@@ -42,25 +42,58 @@ function indexResponse() {
   );
 }
 
+/**
+ * Reassemble x-bare-headers that the client split into x-bare-headers-0,
+ * x-bare-headers-1, ... when too long for a single header. Each split part is
+ * prefixed with ";" (per the bare-as-module3 client).
+ */
+function readBareHeadersJson(request: Request): string | null {
+  const single = request.headers.get("x-bare-headers");
+  if (single !== null) return single;
+
+  const parts: Record<number, string> = {};
+  request.headers.forEach((value, name) => {
+    const m = /^x-bare-headers-(\d+)$/i.exec(name);
+    if (!m) return;
+    if (!value.startsWith(";")) return;
+    parts[Number(m[1])] = value.slice(1);
+  });
+  const keys = Object.keys(parts);
+  if (keys.length === 0) return null;
+  return keys
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((k) => parts[k])
+    .join("");
+}
+
+/** Headers like x-bare-forward-headers may be repeated; `.get()` returns them comma-joined. */
+function splitCommaHeader(value: string | null): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 async function handleProxy(request: Request): Promise<Response> {
   const targetUrl = request.headers.get("x-bare-url");
-  const headersJson = request.headers.get("x-bare-headers");
+  const headersJson = readBareHeadersJson(request);
   if (!targetUrl || !headersJson) {
     return jsonError("MISSING_BARE_HEADER", "bare.headers", 400);
   }
 
   let remoteHeaders: Record<string, string>;
-  let forwardList: string[];
-  let passHeaders: string[];
-  let passStatus: number[];
   try {
     remoteHeaders = JSON.parse(headersJson);
-    forwardList = JSON.parse(request.headers.get("x-bare-forward-headers") ?? "[]");
-    passHeaders = JSON.parse(request.headers.get("x-bare-pass-headers") ?? "[]");
-    passStatus = JSON.parse(request.headers.get("x-bare-pass-status") ?? "[]");
   } catch {
     return jsonError("INVALID_BARE_HEADER", "bare.headers", 400);
   }
+  const forwardList = splitCommaHeader(request.headers.get("x-bare-forward-headers"));
+  const passHeaders = splitCommaHeader(request.headers.get("x-bare-pass-headers"));
+  const passStatus = splitCommaHeader(request.headers.get("x-bare-pass-status"))
+    .map((s) => Number(s))
+    .filter((n) => Number.isFinite(n));
 
   // Merge any headers the client asked us to forward verbatim from its request.
   for (const name of forwardList) {
@@ -105,6 +138,11 @@ async function handleProxy(request: Request): Promise<Response> {
       delete remaining[lower];
     }
   }
+  // Drop transfer encoding / content length — the runtime sets those itself
+  // and forwarding them confuses downstream readers.
+  delete remaining["content-encoding"];
+  delete remaining["content-length"];
+  delete remaining["transfer-encoding"];
   responseHeaders.set("x-bare-headers", JSON.stringify(remaining));
 
   const status = passStatus.includes(upstream.status) ? upstream.status : 200;
@@ -121,7 +159,7 @@ async function dispatch({ request }: { request: Request }): Promise<Response> {
   return indexResponse();
 }
 
-export const Route = createFileRoute("/api/public/bare/v3/$")({
+export const Route = createFileRoute("/api/public/bare/$")({
   server: {
     handlers: {
       GET: dispatch,

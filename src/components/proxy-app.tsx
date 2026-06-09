@@ -9,6 +9,7 @@ import {
   type ProxyEngine,
   type ProxySettings,
   saveSettings,
+  updateBareTransport,
 } from "@/lib/proxy";
 
 interface Tab {
@@ -47,6 +48,10 @@ export function ProxyApp() {
     const first = newTab(s.defaultEngine);
     setTabs([first]);
     setActiveId(first.id);
+    // Pre-warm engines so the first navigation isn't gated on bundle download.
+    void ensureEngineReady(s.bareUrl).catch((err) => {
+      console.warn("[prism] engine bootstrap failed:", err);
+    });
   }, []);
 
   const activeTab = tabs.find((t) => t.id === activeId) ?? null;
@@ -66,7 +71,7 @@ export function ProxyApp() {
     }
     try {
       updateTab(id, { loading: true, errored: false, address });
-      await ensureEngineReady(tab.engine, settings.bareUrl);
+      await ensureEngineReady(settings.bareUrl);
       const src = buildProxiedUrl(tab.engine, address);
       updateTab(id, { src, title: address });
     } catch (err) {
@@ -189,6 +194,8 @@ export function ProxyApp() {
             setSettings(s);
             saveSettings(s);
             setSettingsOpen(false);
+            // Hot-swap the bare transport if the engines are already loaded.
+            void updateBareTransport(s.bareUrl);
           }}
         />
       )}
