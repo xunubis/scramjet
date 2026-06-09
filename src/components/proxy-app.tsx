@@ -66,7 +66,7 @@ export function ProxyApp() {
     }
     try {
       updateTab(id, { loading: true, errored: false, address });
-      await ensureEngineReady(tab.engine, settings.bareUrl);
+      await ensureEngineReady(settings.bareUrl);
       const src = buildProxiedUrl(tab.engine, address);
       updateTab(id, { src, title: address });
     } catch (err) {
