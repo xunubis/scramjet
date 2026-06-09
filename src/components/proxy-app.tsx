@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   buildProxiedUrl,
@@ -11,17 +10,6 @@ import {
   type ProxySettings,
   saveSettings,
 } from "@/lib/proxy";
-
-export const Route = createFileRoute("/app")({
-  head: () => ({
-    meta: [
-      { title: "Prism — Browser" },
-      { name: "description", content: "Dual-engine web proxy browser." },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
-  component: ProxyApp,
-});
 
 interface Tab {
   id: string;
@@ -45,7 +33,7 @@ function newTab(engine: ProxyEngine): Tab {
   };
 }
 
-function ProxyApp() {
+export function ProxyApp() {
   const [settings, setSettings] = useState<ProxySettings>(DEFAULT_SETTINGS);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -59,7 +47,6 @@ function ProxyApp() {
     const first = newTab(s.defaultEngine);
     setTabs([first]);
     setActiveId(first.id);
-    if (!s.bareUrl) setSettingsOpen(true);
   }, []);
 
   const activeTab = tabs.find((t) => t.id === activeId) ?? null;
@@ -504,8 +491,10 @@ function SettingsSheet({
               spellCheck={false}
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              Run <code className="text-foreground">@tomphttp/bare-server-node</code>{" "}
-              and paste its public URL (must end with <code>/</code>).
+              Prism ships with a built-in bare server at{" "}
+              <code className="text-foreground">/api/public/bare/v3/</code> on
+              this same domain — leave as is for the zero-setup default, or
+              paste your own bare-v3 URL (must end with <code>/</code>).
             </p>
           </div>
 

@@ -21,8 +21,21 @@ export interface ProxySettings {
   defaultEngine: ProxyEngine;
 }
 
+/**
+ * The app ships with a built-in bare-v3 server mounted on the same Cloudflare
+ * Worker (see src/routes/api/public/bare.v3.$.tsx). We default to that so the
+ * proxy works for free out of the box — no Railway/Render/VPS required.
+ * Users can override it in Settings if they want to point at their own bare host.
+ */
+export const BUILT_IN_BARE_PATH = "/api/public/bare/v3/";
+
+function defaultBareUrl(): string {
+  if (typeof window === "undefined") return BUILT_IN_BARE_PATH;
+  return window.location.origin + BUILT_IN_BARE_PATH;
+}
+
 export const DEFAULT_SETTINGS: ProxySettings = {
-  bareUrl: "",
+  bareUrl: BUILT_IN_BARE_PATH,
   defaultEngine: "uv",
 };
 
@@ -30,10 +43,15 @@ export function loadSettings(): ProxySettings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
   try {
     const raw = window.localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    const base: ProxySettings = { ...DEFAULT_SETTINGS, bareUrl: defaultBareUrl() };
+    if (!raw) return base;
+    const parsed = JSON.parse(raw) as Partial<ProxySettings>;
+    // If the user never configured a bare server (or saved a blank from older
+    // versions), fall back to the built-in same-origin one.
+    if (!parsed.bareUrl) parsed.bareUrl = base.bareUrl;
+    return { ...base, ...parsed };
   } catch {
-    return DEFAULT_SETTINGS;
+    return { ...DEFAULT_SETTINGS, bareUrl: defaultBareUrl() };
   }
 }
 
