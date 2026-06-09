@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   buildProxiedUrl,
@@ -11,17 +10,6 @@ import {
   type ProxySettings,
   saveSettings,
 } from "@/lib/proxy";
-
-export const Route = createFileRoute("/app")({
-  head: () => ({
-    meta: [
-      { title: "Prism — Browser" },
-      { name: "description", content: "Dual-engine web proxy browser." },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
-  component: ProxyApp,
-});
 
 interface Tab {
   id: string;
