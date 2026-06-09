@@ -48,6 +48,10 @@ export function ProxyApp() {
     const first = newTab(s.defaultEngine);
     setTabs([first]);
     setActiveId(first.id);
+    // Pre-warm engines so the first navigation isn't gated on bundle download.
+    void ensureEngineReady(s.bareUrl).catch((err) => {
+      console.warn("[prism] engine bootstrap failed:", err);
+    });
   }, []);
 
   const activeTab = tabs.find((t) => t.id === activeId) ?? null;
