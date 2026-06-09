@@ -47,7 +47,6 @@ export function ProxyApp() {
     const first = newTab(s.defaultEngine);
     setTabs([first]);
     setActiveId(first.id);
-    if (!s.bareUrl) setSettingsOpen(true);
   }, []);
 
   const activeTab = tabs.find((t) => t.id === activeId) ?? null;
