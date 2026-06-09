@@ -9,6 +9,7 @@ import {
   type ProxyEngine,
   type ProxySettings,
   saveSettings,
+  updateBareTransport,
 } from "@/lib/proxy";
 
 interface Tab {
@@ -189,6 +190,8 @@ export function ProxyApp() {
             setSettings(s);
             saveSettings(s);
             setSettingsOpen(false);
+            // Hot-swap the bare transport if the engines are already loaded.
+            void updateBareTransport(s.bareUrl);
           }}
         />
       )}
