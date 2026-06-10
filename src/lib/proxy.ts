@@ -192,8 +192,10 @@ export function ensureScramjetReady(wispUrl: string): Promise<any> {
     await loadScript("/scram-controller/controller.api.js");
 
     // 3. Dynamically import libcurl transport (it's ESM with a WASM payload).
-    const libcurlUrl: string = "/libcurl/index.mjs";
-    const libcurlMod: any = await import(/* @vite-ignore */ libcurlUrl);
+    //    Use Function() to fully bypass Vite's static import analysis — the
+    //    file is served from /public and must NOT be processed by the bundler.
+    const dynImport = new Function("u", "return import(u)") as (u: string) => Promise<any>;
+    const libcurlMod: any = await dynImport("/libcurl/index.mjs");
     const LibcurlClient = libcurlMod.default ?? libcurlMod.LibcurlClient;
     const transport = new LibcurlClient({ wisp: wispUrl });
 
