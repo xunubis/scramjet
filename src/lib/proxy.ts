@@ -192,9 +192,8 @@ export function ensureScramjetReady(wispUrl: string): Promise<any> {
     await loadScript("/scram-controller/controller.api.js");
 
     // 3. Dynamically import libcurl transport (it's ESM with a WASM payload).
-    const libcurlMod: any = await import(
-      /* @vite-ignore */ (`/libcurl/index.mjs` as string)
-    );
+    const libcurlUrl: string = "/libcurl/index.mjs";
+    const libcurlMod: any = await import(/* @vite-ignore */ libcurlUrl);
     const LibcurlClient = libcurlMod.default ?? libcurlMod.LibcurlClient;
     const transport = new LibcurlClient({ wisp: wispUrl });
 
