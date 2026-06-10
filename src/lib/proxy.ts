@@ -1,13 +1,21 @@
 /**
- * Client-side proxy engine helpers for Ultraviolet 3 + Scramjet 1.
+ * Proxy engine helpers.
  *
- * Both engines now share bare-mux as their transport layer. We use the
- * `bare-as-module3` transport pointing at our embedded bare-v3 server at
- * /api/public/bare/ (see src/routes/api/public/bare.$.tsx) so the whole
- * stack runs on the same Cloudflare Worker for free.
+ * Two completely separate stacks now:
  *
- * A single SW at /sw.js handles both engines; UV owns /uv/service/* and
- * Scramjet owns whatever prefix its controller registers (we use /scramjet/).
+ *   Ultraviolet 3
+ *     - URL-encoded iframe src style (cfg.prefix + cfg.encodeUrl(url)).
+ *     - Transport: bare-mux + bare-v3, hitting our embedded bare server at
+ *       /api/public/bare/v3/ (Cloudflare Worker, no external host needed).
+ *
+ *   Scramjet 2.0.67-alpha.1
+ *     - Brand-new controller architecture: window owns a `Controller`
+ *       which attaches to an iframe element and drives navigation via
+ *       `frame.go(url)`. The controller talks RPC to the SW, which
+ *       holds the ScramjetFetchHandler.
+ *     - Transport: wisp WebSocket (LibcurlClient). Defaults to the
+ *       Mercury Workshop public wisp endpoint so it works free with
+ *       zero setup.
  */
 
 export type ProxyEngine = "uv" | "scramjet";
@@ -23,26 +31,24 @@ declare global {
       decodeUrl: (s: string) => string;
       [k: string]: unknown;
     };
-    $scramjetLoadController?: () => { ScramjetController: any };
-    __prismScramjet?: any;
+    $scramjet?: any;
+    $scramjetController?: any;
+    __prismScramjetController?: any;
     __prismBareConn?: any;
   }
 }
 
-export const SETTINGS_KEY = "prism.settings.v1";
+export const SETTINGS_KEY = "prism.settings.v2";
 
 export interface ProxySettings {
   bareUrl: string;
+  wispUrl: string;
   defaultEngine: ProxyEngine;
 }
 
-/**
- * Bare-as-module3 builds the request URL as `<server>v${version}/`, so the
- * configured value MUST be the bare base WITHOUT the v3 segment — the client
- * appends it. Our embedded bare server is mounted at /api/public/bare/$ and
- * accepts /api/public/bare/v3/.
- */
 export const BUILT_IN_BARE_PATH = "/api/public/bare/";
+/** Public wisp endpoint run by Mercury Workshop. Free, no key. */
+export const DEFAULT_WISP_URL = "wss://wisp.mercurywork.shop/";
 
 function defaultBareUrl(): string {
   if (typeof window === "undefined") return BUILT_IN_BARE_PATH;
@@ -51,6 +57,7 @@ function defaultBareUrl(): string {
 
 export const DEFAULT_SETTINGS: ProxySettings = {
   bareUrl: BUILT_IN_BARE_PATH,
+  wispUrl: DEFAULT_WISP_URL,
   defaultEngine: "uv",
 };
 
@@ -58,12 +65,14 @@ export function loadSettings(): ProxySettings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
   try {
     const raw = window.localStorage.getItem(SETTINGS_KEY);
-    const base: ProxySettings = { ...DEFAULT_SETTINGS, bareUrl: defaultBareUrl() };
+    const base: ProxySettings = {
+      ...DEFAULT_SETTINGS,
+      bareUrl: defaultBareUrl(),
+    };
     if (!raw) return base;
     const parsed = JSON.parse(raw) as Partial<ProxySettings>;
-    // If the user never configured a bare server (or saved a blank from older
-    // versions), fall back to the built-in same-origin one.
     if (!parsed.bareUrl) parsed.bareUrl = base.bareUrl;
+    if (!parsed.wispUrl) parsed.wispUrl = base.wispUrl;
     return { ...base, ...parsed };
   } catch {
     return { ...DEFAULT_SETTINGS, bareUrl: defaultBareUrl() };
@@ -73,8 +82,6 @@ export function loadSettings(): ProxySettings {
 export function saveSettings(s: ProxySettings) {
   window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
 }
-
-const SCRAMJET_PREFIX = "/scramjet/";
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -92,78 +99,151 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
-let initPromise: Promise<void> | null = null;
+/* -------------------------------------------------------------------------- */
+/* Service worker registration (shared)                                       */
+/* -------------------------------------------------------------------------- */
 
-/**
- * One-time bootstrap: loads bare-mux + UV + Scramjet libraries in the page,
- * wires the transport, initializes the Scramjet controller, and registers /sw.js.
- */
-export function ensureEngineReady(bareUrl: string): Promise<void> {
-  if (initPromise) return initPromise;
-  initPromise = (async () => {
-    if (typeof window === "undefined") return;
+let swPromise: Promise<ServiceWorker> | null = null;
+
+function ensureServiceWorker(): Promise<ServiceWorker> {
+  if (swPromise) return swPromise;
+  swPromise = (async () => {
     if (!("serviceWorker" in navigator)) {
-      throw new Error("This browser has no service-worker support.");
+      throw new Error("Service workers are required.");
     }
-    if (!bareUrl) {
-      throw new Error("No bare server configured.");
+    const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    await navigator.serviceWorker.ready;
+    // Wait until a controller actually exists (first install needs reload otherwise).
+    if (!navigator.serviceWorker.controller) {
+      await new Promise<void>((resolve) => {
+        const onChange = () => {
+          navigator.serviceWorker.removeEventListener("controllerchange", onChange);
+          resolve();
+        };
+        navigator.serviceWorker.addEventListener("controllerchange", onChange);
+        // Timeout fallback so the UI doesn't lock forever.
+        setTimeout(resolve, 5000);
+      });
     }
+    return (
+      navigator.serviceWorker.controller ?? reg.active ?? (await navigator.serviceWorker.ready).active!
+    );
+  })().catch((err) => {
+    swPromise = null;
+    throw err;
+  });
+  return swPromise;
+}
 
-    // Order matters: UV bundle exposes `Ultraviolet`, which uv.config.js reads.
+/* -------------------------------------------------------------------------- */
+/* Ultraviolet (bare-mux + bare-v3)                                           */
+/* -------------------------------------------------------------------------- */
+
+let uvPromise: Promise<void> | null = null;
+
+export function ensureUltravioletReady(bareUrl: string): Promise<void> {
+  if (uvPromise) return uvPromise;
+  uvPromise = (async () => {
+    if (!bareUrl) throw new Error("No bare server configured.");
     await loadScript("/baremux/index.js");
     await loadScript("/uv/uv.bundle.js");
     await loadScript("/uv/uv.config.js");
-    await loadScript("/scram/scramjet.all.js");
-
-    // Bare-mux runs as a SharedWorker; bare-as-module3 talks bare-v3 to our
-    // same-origin endpoint, which then makes the real outbound fetch.
     const conn = new window.BareMux.BareMuxConnection("/baremux/worker.js");
     await conn.setTransport("/baremod/index.mjs", [bareUrl]);
     window.__prismBareConn = conn;
-
-    // Scramjet controller — sets the SW-readable config and mounts its prefix.
-    if (!window.__prismScramjet && window.$scramjetLoadController) {
-      const { ScramjetController } = window.$scramjetLoadController();
-      const scramjet = new ScramjetController({
-        prefix: SCRAMJET_PREFIX,
-        files: {
-          wasm: "/scram/scramjet.wasm.wasm",
-          all: "/scram/scramjet.all.js",
-          sync: "/scram/scramjet.sync.js",
-        },
-      });
-      await scramjet.init();
-      window.__prismScramjet = scramjet;
-    }
-
-    // Single SW for both engines, scoped to /.
-    await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-    await navigator.serviceWorker.ready;
+    await ensureServiceWorker();
   })().catch((err) => {
-    // Reset so the next attempt retries from scratch instead of caching the failure.
-    initPromise = null;
+    uvPromise = null;
     throw err;
   });
-  return initPromise;
+  return uvPromise;
 }
 
-/** Update the bare transport without reloading. Call after settings save. */
 export async function updateBareTransport(bareUrl: string) {
   if (typeof window === "undefined" || !window.__prismBareConn) return;
   await window.__prismBareConn.setTransport("/baremod/index.mjs", [bareUrl]);
 }
 
-/** Encode a destination URL for the chosen engine. Requires ensureEngineReady to have resolved. */
-export function buildProxiedUrl(engine: ProxyEngine, target: string): string {
-  const normalized = /^https?:\/\//i.test(target) ? target : `https://${target}`;
-  if (engine === "uv") {
-    const cfg = window.__uv$config;
-    if (!cfg) throw new Error("Ultraviolet not loaded yet.");
-    return cfg.prefix + cfg.encodeUrl(normalized);
-  }
-  const sj = window.__prismScramjet;
-  if (!sj) throw new Error("Scramjet not loaded yet.");
-  return sj.encodeUrl(normalized);
+/** Encode a destination URL for UV (iframe-src style). */
+export function buildUvUrl(target: string): string {
+  const normalized = normalizeTarget(target);
+  const cfg = window.__uv$config;
+  if (!cfg) throw new Error("Ultraviolet not loaded yet.");
+  return cfg.prefix + cfg.encodeUrl(normalized);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Scramjet 2 (controller + wisp libcurl transport)                           */
+/* -------------------------------------------------------------------------- */
+
+const SCRAMJET_PREFIX = "/~/sj/";
+let scramjetPromise: Promise<any> | null = null;
+
+export function ensureScramjetReady(wispUrl: string): Promise<any> {
+  if (scramjetPromise) return scramjetPromise;
+  scramjetPromise = (async () => {
+    if (!wispUrl) throw new Error("No wisp URL configured.");
+    // 1. Service worker + controller bundles need to be live in the SW first.
+    const sw = await ensureServiceWorker();
+
+    // 2. Load scramjet runtime, then controller API (order matters — controller
+    //    asserts $scramjet exists and version-matches).
+    await loadScript("/scram/scramjet.js");
+    await loadScript("/scram-controller/controller.api.js");
+
+    // 3. Load libcurl transport via a module script (Vite refuses to import
+    //    /public ESM directly). The module stashes the class on window.
+    if (!(window as any).__prismLibcurl) {
+      await new Promise<void>((resolve, reject) => {
+        const s = document.createElement("script");
+        s.type = "module";
+        s.textContent =
+          'import LC from "/libcurl/index.mjs"; window.__prismLibcurl = LC; window.dispatchEvent(new Event("__prism-libcurl-ready"));';
+        s.onerror = () => reject(new Error("Failed to load libcurl module"));
+        window.addEventListener("__prism-libcurl-ready", () => resolve(), { once: true });
+        document.head.appendChild(s);
+        setTimeout(() => reject(new Error("libcurl load timeout")), 15000);
+      });
+    }
+    const LibcurlClient: any = (window as any).__prismLibcurl;
+    const transport = new LibcurlClient({ wisp: wispUrl });
+
+    // 4. Construct the Controller and wait for it to handshake with the SW.
+    const { Controller } = window.$scramjetController;
+    const controller = new Controller({
+      serviceworker: sw,
+      transport,
+      config: {
+        prefix: SCRAMJET_PREFIX,
+        scramjetPath: "/scram/scramjet.js",
+        injectPath: "/scram-controller/controller.inject.js",
+        wasmPath: "/scram/scramjet.wasm",
+      },
+    });
+    await controller.wait();
+    window.__prismScramjetController = controller;
+    return controller;
+  })().catch((err) => {
+    scramjetPromise = null;
+    throw err;
+  });
+  return scramjetPromise;
+}
+
+/** Create a Scramjet Frame bound to an iframe element. */
+export async function createScramjetFrame(iframeEl: HTMLIFrameElement, wispUrl: string) {
+  const controller = await ensureScramjetReady(wispUrl);
+  return controller.createFrame(iframeEl, { plugins: [] });
+}
+
+/* -------------------------------------------------------------------------- */
+
+export function normalizeTarget(target: string): string {
+  const t = target.trim();
+  if (!t) return t;
+  if (/^https?:\/\//i.test(t)) return t;
+  if (/\.[a-z]{2,}/i.test(t)) return `https://${t}`;
+  return `https://duckduckgo.com/?q=${encodeURIComponent(t)}`;
 }
 
 export function otherEngine(e: ProxyEngine): ProxyEngine {
