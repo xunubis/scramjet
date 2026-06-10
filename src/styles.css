@@ -63,42 +63,43 @@
 
 :root {
   --radius: 0.625rem;
-  /* Warm-black browser theme — near-black bg, orange accent dot */
-  --background: oklch(0.13 0.012 40);
-  --foreground: oklch(0.97 0.005 80);
-  --card: oklch(0.15 0.012 40);
-  --card-foreground: oklch(0.97 0.005 80);
-  --popover: oklch(0.16 0.012 40);
-  --popover-foreground: oklch(0.97 0.005 80);
-  --primary: oklch(0.72 0.19 50);
-  --primary-foreground: oklch(0.14 0.012 40);
-  --secondary: oklch(0.2 0.012 40);
-  --secondary-foreground: oklch(0.97 0.005 80);
-  --muted: oklch(0.2 0.012 40);
-  --muted-foreground: oklch(0.65 0.01 60);
-  --accent: oklch(0.72 0.19 50);
-  --accent-foreground: oklch(0.14 0.012 40);
+  /* Night sky browser theme — deep indigo, lavender accent */
+  --background: oklch(0.13 0.04 270);
+  --foreground: oklch(0.96 0.01 260);
+  --card: oklch(0.17 0.05 270);
+  --card-foreground: oklch(0.96 0.01 260);
+  --popover: oklch(0.16 0.05 270);
+  --popover-foreground: oklch(0.96 0.01 260);
+  --primary: oklch(0.78 0.16 285);
+  --primary-foreground: oklch(0.14 0.04 270);
+  --secondary: oklch(0.22 0.05 270);
+  --secondary-foreground: oklch(0.96 0.01 260);
+  --muted: oklch(0.22 0.05 270);
+  --muted-foreground: oklch(0.7 0.04 270);
+  --accent: oklch(0.82 0.14 200);
+  --accent-foreground: oklch(0.14 0.04 270);
   --destructive: oklch(0.65 0.24 25);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.24 0.012 40);
-  --input: oklch(0.2 0.012 40);
-  --ring: oklch(0.72 0.19 50);
+  --border: oklch(0.28 0.05 270);
+  --input: oklch(0.22 0.05 270);
+  --ring: oklch(0.78 0.16 285);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.13 0.012 40);
-  --sidebar-foreground: oklch(0.97 0.005 80);
-  --sidebar-primary: oklch(0.72 0.19 50);
-  --sidebar-primary-foreground: oklch(0.14 0.012 40);
-  --sidebar-accent: oklch(0.2 0.012 40);
-  --sidebar-accent-foreground: oklch(0.97 0.005 80);
-  --sidebar-border: oklch(0.24 0.012 40);
-  --sidebar-ring: oklch(0.72 0.19 50);
+  --sidebar: oklch(0.13 0.04 270);
+  --sidebar-foreground: oklch(0.96 0.01 260);
+  --sidebar-primary: oklch(0.78 0.16 285);
+  --sidebar-primary-foreground: oklch(0.14 0.04 270);
+  --sidebar-accent: oklch(0.22 0.05 270);
+  --sidebar-accent-foreground: oklch(0.96 0.01 260);
+  --sidebar-border: oklch(0.28 0.05 270);
+  --sidebar-ring: oklch(0.78 0.16 285);
 
-  --gradient-aurora: radial-gradient(circle at 50% 30%, oklch(0.72 0.19 50 / 0.18), transparent 60%);
-  --shadow-glow: 0 0 60px -10px oklch(0.72 0.19 50 / 0.35);
+  --gradient-aurora: radial-gradient(circle at 50% 30%, oklch(0.78 0.16 285 / 0.22), transparent 60%),
+    radial-gradient(circle at 80% 70%, oklch(0.82 0.14 200 / 0.18), transparent 55%);
+  --shadow-glow: 0 0 60px -10px oklch(0.78 0.16 285 / 0.45);
   --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Code", monospace;
   --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -147,4 +148,50 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+}
+
+/* --- Night sky / starfield ------------------------------------------------ */
+
+.prism-nightsky {
+  background:
+    radial-gradient(ellipse at 20% 10%, oklch(0.22 0.08 285 / 0.55), transparent 55%),
+    radial-gradient(ellipse at 80% 90%, oklch(0.18 0.09 230 / 0.6), transparent 60%),
+    linear-gradient(180deg, oklch(0.09 0.04 270) 0%, oklch(0.13 0.05 275) 60%, oklch(0.1 0.05 260) 100%);
+}
+
+@keyframes prism-twinkle {
+  0%, 100% { opacity: 0.15; transform: translateY(0) scale(1); }
+  50%      { opacity: 1;    transform: translateY(8px) scale(1.2); }
+}
+
+.prism-star {
+  position: absolute;
+  border-radius: 9999px;
+  background: white;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
+  animation-name: prism-twinkle;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+  will-change: opacity, transform;
+}
+
+@keyframes prism-shoot {
+  0%   { transform: translate3d(-10vw, -10vh, 0) rotate(20deg); opacity: 0; }
+  5%   { opacity: 1; }
+  40%  { transform: translate3d(60vw, 40vh, 0) rotate(20deg); opacity: 0.9; }
+  60%  { opacity: 0; }
+  100% { transform: translate3d(120vw, 80vh, 0) rotate(20deg); opacity: 0; }
+}
+
+.prism-shooting-star {
+  position: absolute;
+  left: 0;
+  width: 140px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, white, transparent);
+  filter: drop-shadow(0 0 6px white);
+  border-radius: 9999px;
+  animation: prism-shoot 7s linear infinite;
+  opacity: 0;
+  pointer-events: none;
 }
