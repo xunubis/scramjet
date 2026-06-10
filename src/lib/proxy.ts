@@ -191,12 +191,21 @@ export function ensureScramjetReady(wispUrl: string): Promise<any> {
     await loadScript("/scram/scramjet.js");
     await loadScript("/scram-controller/controller.api.js");
 
-    // 3. Dynamically import libcurl transport (it's ESM with a WASM payload).
-    //    Use Function() to fully bypass Vite's static import analysis — the
-    //    file is served from /public and must NOT be processed by the bundler.
-    const dynImport = new Function("u", "return import(u)") as (u: string) => Promise<any>;
-    const libcurlMod: any = await dynImport("/libcurl/index.mjs");
-    const LibcurlClient = libcurlMod.default ?? libcurlMod.LibcurlClient;
+    // 3. Load libcurl transport via a module script (Vite refuses to import
+    //    /public ESM directly). The module stashes the class on window.
+    if (!(window as any).__prismLibcurl) {
+      await new Promise<void>((resolve, reject) => {
+        const s = document.createElement("script");
+        s.type = "module";
+        s.textContent =
+          'import LC from "/libcurl/index.mjs"; window.__prismLibcurl = LC; window.dispatchEvent(new Event("__prism-libcurl-ready"));';
+        s.onerror = () => reject(new Error("Failed to load libcurl module"));
+        window.addEventListener("__prism-libcurl-ready", () => resolve(), { once: true });
+        document.head.appendChild(s);
+        setTimeout(() => reject(new Error("libcurl load timeout")), 15000);
+      });
+    }
+    const LibcurlClient: any = (window as any).__prismLibcurl;
     const transport = new LibcurlClient({ wisp: wispUrl });
 
     // 4. Construct the Controller and wait for it to handshake with the SW.
