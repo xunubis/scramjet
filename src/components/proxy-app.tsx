@@ -201,7 +201,7 @@ export function ProxyApp() {
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <StarField />
+      <div className="absolute inset-0 prism-wallpaper" aria-hidden />
 
       <div className="relative z-10 flex flex-col h-full">
         <TabStrip
