@@ -314,61 +314,6 @@ export function ProxyApp() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Starfield — falling stars + occasional shooting star                       */
-/* -------------------------------------------------------------------------- */
-
-function StarField() {
-  // Build deterministic random stars once.
-  const stars = useRef(
-    Array.from({ length: 90 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      top: Math.random() * 100,
-      size: Math.random() * 2 + 0.6,
-      delay: Math.random() * 6,
-      dur: 3 + Math.random() * 5,
-    })),
-  ).current;
-  const shooters = useRef(
-    Array.from({ length: 4 }, (_, i) => ({
-      id: i,
-      top: Math.random() * 60,
-      delay: i * 4 + Math.random() * 6,
-    })),
-  ).current;
-
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 prism-nightsky" />
-      {stars.map((s) => (
-        <span
-          key={s.id}
-          className="prism-star"
-          style={{
-            left: `${s.left}%`,
-            top: `${s.top}%`,
-            width: `${s.size}px`,
-            height: `${s.size}px`,
-            animationDelay: `${s.delay}s`,
-            animationDuration: `${s.dur}s`,
-          }}
-        />
-      ))}
-      {shooters.map((s) => (
-        <span
-          key={s.id}
-          className="prism-shooting-star"
-          style={{
-            top: `${s.top}%`,
-            animationDelay: `${s.delay}s`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 
 function TabStrip({
   tabs,
