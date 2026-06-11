@@ -11,8 +11,8 @@ importScripts("/uv/uv.bundle.js");
 importScripts("/uv/uv.config.js");
 importScripts("/uv/uv.sw.js");
 
-// --- Scramjet 2 (controller routes proxy traffic; runtime is loaded into frames by controller) ---
-importScripts("/scram/scramjet.js");
+// --- Scramjet 2 (controller SW only; the scramjet runtime is loaded into pages/frames, NOT here.
+//     scramjet.js touches `document` at evaluation time and would break the entire SW.) ---
 importScripts("/scram-controller/controller.sw.js");
 
 // eslint-disable-next-line no-undef
