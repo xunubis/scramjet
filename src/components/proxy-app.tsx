@@ -201,7 +201,7 @@ export function ProxyApp() {
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <StarField />
+      <div className="absolute inset-0 prism-wallpaper" aria-hidden />
 
       <div className="relative z-10 flex flex-col h-full">
         <TabStrip
@@ -309,61 +309,6 @@ export function ProxyApp() {
           }}
         />
       )}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Starfield — falling stars + occasional shooting star                       */
-/* -------------------------------------------------------------------------- */
-
-function StarField() {
-  // Build deterministic random stars once.
-  const stars = useRef(
-    Array.from({ length: 90 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      top: Math.random() * 100,
-      size: Math.random() * 2 + 0.6,
-      delay: Math.random() * 6,
-      dur: 3 + Math.random() * 5,
-    })),
-  ).current;
-  const shooters = useRef(
-    Array.from({ length: 4 }, (_, i) => ({
-      id: i,
-      top: Math.random() * 60,
-      delay: i * 4 + Math.random() * 6,
-    })),
-  ).current;
-
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 prism-nightsky" />
-      {stars.map((s) => (
-        <span
-          key={s.id}
-          className="prism-star"
-          style={{
-            left: `${s.left}%`,
-            top: `${s.top}%`,
-            width: `${s.size}px`,
-            height: `${s.size}px`,
-            animationDelay: `${s.delay}s`,
-            animationDuration: `${s.dur}s`,
-          }}
-        />
-      ))}
-      {shooters.map((s) => (
-        <span
-          key={s.id}
-          className="prism-shooting-star"
-          style={{
-            top: `${s.top}%`,
-            animationDelay: `${s.delay}s`,
-          }}
-        />
-      ))}
     </div>
   );
 }
@@ -555,11 +500,14 @@ function NavIconBtn({
 function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   const [q, setQ] = useState("");
   const shortcuts = [
-    { label: "YouTube", url: "youtube.com", letter: "Y" },
-    { label: "Discord", url: "discord.com", letter: "D" },
-    { label: "GitHub", url: "github.com", letter: "G" },
-    { label: "Reddit", url: "reddit.com", letter: "R" },
-    { label: "Wikipedia", url: "wikipedia.org", letter: "W" },
+    { label: "YouTube", url: "youtube.com", domain: "youtube.com" },
+    { label: "Discord", url: "discord.com", domain: "discord.com" },
+    { label: "GitHub", url: "github.com", domain: "github.com" },
+    { label: "Reddit", url: "reddit.com", domain: "reddit.com" },
+    { label: "Wikipedia", url: "wikipedia.org", domain: "wikipedia.org" },
+    { label: "Spotify", url: "open.spotify.com", domain: "spotify.com" },
+    { label: "Twitch", url: "twitch.tv", domain: "twitch.tv" },
+    { label: "X", url: "x.com", domain: "x.com" },
   ];
 
   function submit(e: React.FormEvent) {
@@ -571,23 +519,18 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
 
   return (
     <div className="relative flex h-full flex-col items-center justify-center px-6 text-center">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{ background: "var(--gradient-aurora)" }}
-      />
       <h1
-        className="select-none text-7xl font-bold tracking-tight sm:text-8xl"
+        className="select-none text-6xl font-semibold tracking-tight sm:text-7xl"
         style={{
           fontFamily: "var(--font-display)",
-          letterSpacing: "-0.04em",
-          textShadow: "0 0 40px color-mix(in oklab, var(--primary) 40%, transparent)",
+          letterSpacing: "-0.03em",
         }}
       >
         Prism
         <span style={{ color: "var(--primary)" }}>.</span>
       </h1>
       <p className="mt-3 text-xs uppercase tracking-[0.3em] text-muted-foreground">
-        a quiet night on the web
+        a calm corner of the web
       </p>
 
       <form
@@ -615,7 +558,7 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
         />
       </form>
 
-      <div className="mt-12 flex flex-wrap items-start justify-center gap-6">
+      <div className="mt-12 flex flex-wrap items-start justify-center gap-5">
         {shortcuts.map((s) => (
           <button
             key={s.label}
@@ -623,14 +566,20 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
             className="group flex w-20 flex-col items-center gap-2"
           >
             <span
-              className="flex h-14 w-14 items-center justify-center rounded-2xl border text-lg font-semibold text-foreground transition group-hover:scale-105 group-hover:border-primary/60"
+              className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border bg-card/60 transition group-hover:scale-105 group-hover:border-primary/60"
               style={{
-                background: "color-mix(in oklab, var(--card) 70%, transparent)",
-                borderColor: "color-mix(in oklab, var(--primary) 18%, transparent)",
-                boxShadow: "0 8px 30px -14px color-mix(in oklab, var(--primary) 60%, transparent)",
+                borderColor: "color-mix(in oklab, var(--foreground) 10%, transparent)",
+                boxShadow: "0 6px 20px -12px rgba(0,0,0,0.6)",
               }}
             >
-              {s.letter}
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`}
+                alt=""
+                width={32}
+                height={32}
+                loading="lazy"
+                className="h-8 w-8"
+              />
             </span>
             <span className="text-xs text-muted-foreground group-hover:text-foreground">
               {s.label}
