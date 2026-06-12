@@ -799,9 +799,19 @@ function SettingsSheet({
   onSave: (s: ProxySettings) => void;
 }) {
   const [draft, setDraft] = useState(settings);
+  const [clearing, setClearing] = useState(false);
+
+  async function clearData() {
+    setClearing(true);
+    try {
+      await clearProxyState();
+    } finally {
+      window.location.reload();
+    }
+  }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-primary/20 bg-card/90 p-6 shadow-2xl backdrop-blur">
+      <div className="prism-enter max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-primary/20 bg-card/90 p-6 shadow-2xl backdrop-blur">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Settings</h2>
@@ -854,6 +864,66 @@ function SettingsSheet({
               ))}
             </div>
           </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Accent
+            </label>
+            <div className="mt-2 flex gap-2.5">
+              {ACCENTS.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => setDraft({ ...draft, accent: a.id })}
+                  title={a.label}
+                  aria-label={a.label}
+                  className={
+                    "prism-smooth h-8 w-8 rounded-full border-2 " +
+                    (draft.accent === a.id
+                      ? "scale-110 border-foreground"
+                      : "border-transparent opacity-70 hover:opacity-100")
+                  }
+                  style={{ background: a.swatch }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2.5">
+            <div>
+              <p className="text-sm">Reduced motion</p>
+              <p className="text-xs text-muted-foreground">
+                Turn off animations and transitions.
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={draft.reducedMotion}
+              onClick={() => setDraft({ ...draft, reducedMotion: !draft.reducedMotion })}
+              className={
+                "prism-smooth relative h-6 w-11 shrink-0 rounded-full " +
+                (draft.reducedMotion ? "bg-primary" : "bg-secondary")
+              }
+            >
+              <span
+                className={
+                  "prism-smooth absolute top-0.5 h-5 w-5 rounded-full bg-background " +
+                  (draft.reducedMotion ? "left-[22px]" : "left-0.5")
+                }
+              />
+            </button>
+          </div>
+
+          <button
+            onClick={clearData}
+            disabled={clearing}
+            className="prism-smooth flex w-full items-center justify-center gap-2 rounded-md border border-destructive/40 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            {clearing ? "Clearing…" : "Clear proxy & cache data"}
+          </button>
+          <p className="-mt-3 text-xs text-muted-foreground">
+            Unregisters the service worker, wipes caches and engine storage, then reloads.
+          </p>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
