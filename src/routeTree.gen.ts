@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicSuggestRouteImport } from './routes/api/public/suggest'
 import { Route as ApiPublicBareSplatRouteImport } from './routes/api/public/bare.$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSuggestRoute = ApiPublicSuggestRouteImport.update({
+  id: '/api/public/suggest',
+  path: '/api/public/suggest',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicBareSplatRoute = ApiPublicBareSplatRouteImport.update({
@@ -25,27 +31,31 @@ const ApiPublicBareSplatRoute = ApiPublicBareSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/suggest': typeof ApiPublicSuggestRoute
   '/api/public/bare/$': typeof ApiPublicBareSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/suggest': typeof ApiPublicSuggestRoute
   '/api/public/bare/$': typeof ApiPublicBareSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/suggest': typeof ApiPublicSuggestRoute
   '/api/public/bare/$': typeof ApiPublicBareSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/bare/$'
+  fullPaths: '/' | '/api/public/suggest' | '/api/public/bare/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/bare/$'
-  id: '__root__' | '/' | '/api/public/bare/$'
+  to: '/' | '/api/public/suggest' | '/api/public/bare/$'
+  id: '__root__' | '/' | '/api/public/suggest' | '/api/public/bare/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicSuggestRoute: typeof ApiPublicSuggestRoute
   ApiPublicBareSplatRoute: typeof ApiPublicBareSplatRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/suggest': {
+      id: '/api/public/suggest'
+      path: '/api/public/suggest'
+      fullPath: '/api/public/suggest'
+      preLoaderRoute: typeof ApiPublicSuggestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/bare/$': {
@@ -70,8 +87,19 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicSuggestRoute: ApiPublicSuggestRoute,
   ApiPublicBareSplatRoute: ApiPublicBareSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

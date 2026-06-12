@@ -12,17 +12,20 @@ import {
   Search,
   X,
   Plus,
+  Trash2,
 } from "lucide-react";
 import {
+  ACCENTS,
   buildUvUrl,
+  clearProxyState,
   createScramjetFrame,
   DEFAULT_SETTINGS,
   engineLabel,
   ensureUltravioletReady,
-  ensureScramjetReady,
   loadSettings,
   normalizeTarget,
   otherEngine,
+  prewarmEngines,
   type ProxyEngine,
   type ProxySettings,
   saveSettings,
@@ -71,17 +74,16 @@ export function ProxyApp() {
     const first = newTab(s.defaultEngine);
     setTabs([first]);
     setActiveId(first.id);
-    // Pre-warm the default engine so the first navigation isn't slow.
-    if (s.defaultEngine === "uv") {
-      void ensureUltravioletReady(s.bareUrl).catch((e) =>
-        console.warn("[prism] UV warmup failed:", e),
-      );
-    } else {
-      void ensureScramjetReady(s.wispUrl).catch((e) =>
-        console.warn("[prism] Scramjet warmup failed:", e),
-      );
-    }
+    // Pre-warm BOTH engines so first navigation and engine switches feel instant.
+    prewarmEngines(s);
   }, []);
+
+  // Apply appearance settings (reduced motion + accent theme) to the document.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("prism-no-motion", settings.reducedMotion);
+    root.dataset.accent = settings.accent;
+  }, [settings.reducedMotion, settings.accent]);
 
   const activeTab = tabs.find((t) => t.id === activeId) ?? null;
 
@@ -109,7 +111,9 @@ export function ProxyApp() {
           scramFrames.current[id] = frame;
         }
         await frame.go(target);
-        updateTab(id, { title: address, loading: false });
+        updateTab(id, { title: address });
+        // Safety: never leave the skeleton up forever if the load event is swallowed.
+        window.setTimeout(() => updateTab(id, { loading: false }), 12000);
       }
     } catch (err) {
       console.error("[prism] navigate failed:", err);
@@ -261,9 +265,9 @@ export function ProxyApp() {
                     ref={(el) => {
                       iframeRefs.current[t.id] = el;
                     }}
-                    src={t.uvSrc}
+                    src={t.uvSrc || undefined}
                     title={t.title}
-                    className="h-full w-full border-0 bg-white"
+                    className="h-full w-full border-0 bg-background"
                     onLoad={() => updateTab(t.id, { loading: false })}
                     sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation allow-same-origin allow-scripts allow-downloads"
                   />
@@ -274,7 +278,7 @@ export function ProxyApp() {
                         iframeRefs.current[t.id] = el;
                       }}
                       title={t.title}
-                      className="h-full w-full border-0 bg-white"
+                      className="h-full w-full border-0 bg-background"
                       onLoad={() => updateTab(t.id, { loading: false })}
                     />
                     {!t.address && (
@@ -284,6 +288,8 @@ export function ProxyApp() {
                     )}
                   </>
                 )}
+
+                <LoadingSkeleton visible={t.loading && !t.errored && !showBlank} />
 
                 {t.errored && (
                   <div className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm prism-enter">
@@ -334,6 +340,40 @@ export function ProxyApp() {
       )}
 
       <FooterLinks />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Wallpaper-backed skeleton that sits above the iframe while a page loads,
+ * so navigation never flashes white. Fades out when the page is ready.
+ */
+function LoadingSkeleton({ visible }: { visible: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={
+        "pointer-events-none absolute inset-0 z-10 prism-wallpaper transition-opacity duration-500 " +
+        (visible ? "opacity-100" : "opacity-0")
+      }
+    >
+      <div className="mx-auto flex h-full max-w-4xl flex-col gap-5 p-8">
+        <div className="flex items-center gap-3">
+          <div className="prism-skeleton h-9 w-9 rounded-full" />
+          <div className="prism-skeleton h-9 w-full max-w-md rounded-full" />
+        </div>
+        <div className="prism-skeleton h-44 w-full rounded-2xl" />
+        <div className="grid grid-cols-3 gap-4">
+          <div className="prism-skeleton h-28 rounded-xl" />
+          <div className="prism-skeleton h-28 rounded-xl" />
+          <div className="prism-skeleton h-28 rounded-xl" />
+        </div>
+        <div className="prism-skeleton h-4 w-2/3 rounded" />
+        <div className="prism-skeleton h-4 w-1/2 rounded" />
+        <div className="prism-skeleton h-4 w-3/5 rounded" />
+      </div>
     </div>
   );
 }
@@ -570,6 +610,13 @@ function FooterLinks() {
 
 function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   const [q, setQ] = useState("");
+  const [sugs, setSugs] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(-1);
+  const [leaving, setLeaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const debounceRef = useRef<number | undefined>(undefined);
+  const reqSeq = useRef(0);
   const shortcuts = [
     { label: "GitHub",   url: "github.com",   domain: "github.com" },
     { label: "Discord",  url: "discord.com",  domain: "discord.com" },
@@ -585,16 +632,79 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   ];
   const [ph] = useState(() => placeholders[Math.floor(Math.random() * placeholders.length)]);
 
+  // Instant focus: typing anywhere on the page focuses the search box.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key.length === 1 || e.key === "Backspace") inputRef.current?.focus();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Debounced suggestions via the built-in /api/public/suggest relay.
+  useEffect(() => {
+    window.clearTimeout(debounceRef.current);
+    const v = q.trim();
+    if (!v || /^https?:\/\//i.test(v)) {
+      setSugs([]);
+      setOpen(false);
+      setHi(-1);
+      return;
+    }
+    debounceRef.current = window.setTimeout(async () => {
+      const seq = ++reqSeq.current;
+      try {
+        const res = await fetch(`/api/public/suggest?q=${encodeURIComponent(v)}`);
+        const list = (await res.json()) as string[];
+        if (seq !== reqSeq.current) return;
+        setSugs(list);
+        setOpen(list.length > 0);
+        setHi(-1);
+      } catch {
+        /* suggestions are best-effort */
+      }
+    }, 140);
+    return () => window.clearTimeout(debounceRef.current);
+  }, [q]);
+
+  function go(value: string) {
+    const v = value.trim();
+    if (!v || leaving) return;
+    setLeaving(true);
+    setOpen(false);
+    window.setTimeout(() => onPick(v), 180);
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const v = q.trim();
-    if (!v) return;
-    onPick(v);
+    go(hi >= 0 && sugs[hi] ? sugs[hi] : q);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (!open || sugs.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHi((h) => (h + 1) % sugs.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHi((h) => (h <= 0 ? sugs.length - 1 : h - 1));
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setHi(-1);
+    }
   }
 
   return (
     <div className="relative flex h-full flex-col items-center justify-center px-6 text-center prism-wallpaper">
-      <div className="prism-enter flex w-full max-w-3xl flex-col items-center">
+      <div
+        className={
+          "prism-enter flex w-full max-w-3xl flex-col items-center " +
+          (leaving ? "prism-leave" : "")
+        }
+      >
         <h1
           className="select-none text-5xl font-bold tracking-tight text-foreground/90 sm:text-7xl"
           style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.035em" }}
@@ -602,26 +712,60 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
           Welcome to Prism
         </h1>
 
-        <form
-          onSubmit={submit}
-          className="prism-smooth mt-14 flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-black/40 px-6 py-5 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur focus-within:border-white/15 focus-within:bg-black/50"
-        >
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search DuckDuckGo or type an URL"
-            className="w-full bg-transparent text-center text-lg italic outline-none placeholder:text-muted-foreground/70"
-            autoFocus
-            spellCheck={false}
-          />
-        </form>
+        <div className="relative mt-14 w-full">
+          <form
+            onSubmit={submit}
+            className="prism-smooth flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-black/40 px-6 py-5 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur focus-within:border-white/15 focus-within:bg-black/50"
+          >
+            <input
+              ref={inputRef}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={onKeyDown}
+              onFocus={() => sugs.length > 0 && setOpen(true)}
+              onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+              placeholder="Search DuckDuckGo or type an URL"
+              className="w-full bg-transparent text-center text-lg italic outline-none placeholder:text-muted-foreground/70"
+              autoFocus
+              spellCheck={false}
+            />
+          </form>
+
+          {open && (
+            <div
+              className="prism-enter absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-popover/95 py-1.5 text-left shadow-[0_24px_70px_-30px_rgba(0,0,0,0.9)] backdrop-blur"
+              style={{ animationDuration: "180ms" }}
+            >
+              {sugs.map((s, i) => (
+                <button
+                  key={s}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    go(s);
+                  }}
+                  onMouseEnter={() => setHi(i)}
+                  className={
+                    "prism-smooth flex w-full items-center gap-3 px-5 py-2.5 text-sm " +
+                    (i === hi
+                      ? "bg-white/[0.07] text-foreground"
+                      : "text-muted-foreground")
+                  }
+                >
+                  <Search className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                  <span className="truncate">{s}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <p className="mt-3 text-sm text-muted-foreground/60">{ph}</p>
 
         <div className="mt-14 flex flex-wrap items-start justify-center gap-6">
           {shortcuts.map((s) => (
             <button
               key={s.label}
-              onClick={() => onPick(s.url)}
+              onClick={() => go(s.url)}
               className="prism-smooth group flex w-20 flex-col items-center gap-2"
             >
               <span className="prism-smooth flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/5 bg-white/[0.03] group-hover:-translate-y-0.5 group-hover:border-white/20 group-hover:bg-white/[0.06]">
@@ -655,9 +799,19 @@ function SettingsSheet({
   onSave: (s: ProxySettings) => void;
 }) {
   const [draft, setDraft] = useState(settings);
+  const [clearing, setClearing] = useState(false);
+
+  async function clearData() {
+    setClearing(true);
+    try {
+      await clearProxyState();
+    } finally {
+      window.location.reload();
+    }
+  }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-primary/20 bg-card/90 p-6 shadow-2xl backdrop-blur">
+      <div className="prism-enter max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-primary/20 bg-card/90 p-6 shadow-2xl backdrop-blur">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Settings</h2>
@@ -710,6 +864,66 @@ function SettingsSheet({
               ))}
             </div>
           </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Accent
+            </label>
+            <div className="mt-2 flex gap-2.5">
+              {ACCENTS.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => setDraft({ ...draft, accent: a.id })}
+                  title={a.label}
+                  aria-label={a.label}
+                  className={
+                    "prism-smooth h-8 w-8 rounded-full border-2 " +
+                    (draft.accent === a.id
+                      ? "scale-110 border-foreground"
+                      : "border-transparent opacity-70 hover:opacity-100")
+                  }
+                  style={{ background: a.swatch }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2.5">
+            <div>
+              <p className="text-sm">Reduced motion</p>
+              <p className="text-xs text-muted-foreground">
+                Turn off animations and transitions.
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={draft.reducedMotion}
+              onClick={() => setDraft({ ...draft, reducedMotion: !draft.reducedMotion })}
+              className={
+                "prism-smooth relative h-6 w-11 shrink-0 rounded-full " +
+                (draft.reducedMotion ? "bg-primary" : "bg-secondary")
+              }
+            >
+              <span
+                className={
+                  "prism-smooth absolute top-0.5 h-5 w-5 rounded-full bg-background " +
+                  (draft.reducedMotion ? "left-[22px]" : "left-0.5")
+                }
+              />
+            </button>
+          </div>
+
+          <button
+            onClick={clearData}
+            disabled={clearing}
+            className="prism-smooth flex w-full items-center justify-center gap-2 rounded-md border border-destructive/40 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            {clearing ? "Clearing…" : "Clear proxy & cache data"}
+          </button>
+          <p className="-mt-3 text-xs text-muted-foreground">
+            Unregisters the service worker, wipes caches and engine storage, then reloads.
+          </p>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
