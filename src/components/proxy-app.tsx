@@ -12,17 +12,20 @@ import {
   Search,
   X,
   Plus,
+  Trash2,
 } from "lucide-react";
 import {
+  ACCENTS,
   buildUvUrl,
+  clearProxyState,
   createScramjetFrame,
   DEFAULT_SETTINGS,
   engineLabel,
   ensureUltravioletReady,
-  ensureScramjetReady,
   loadSettings,
   normalizeTarget,
   otherEngine,
+  prewarmEngines,
   type ProxyEngine,
   type ProxySettings,
   saveSettings,
@@ -71,17 +74,16 @@ export function ProxyApp() {
     const first = newTab(s.defaultEngine);
     setTabs([first]);
     setActiveId(first.id);
-    // Pre-warm the default engine so the first navigation isn't slow.
-    if (s.defaultEngine === "uv") {
-      void ensureUltravioletReady(s.bareUrl).catch((e) =>
-        console.warn("[prism] UV warmup failed:", e),
-      );
-    } else {
-      void ensureScramjetReady(s.wispUrl).catch((e) =>
-        console.warn("[prism] Scramjet warmup failed:", e),
-      );
-    }
+    // Pre-warm BOTH engines so first navigation and engine switches feel instant.
+    prewarmEngines(s);
   }, []);
+
+  // Apply appearance settings (reduced motion + accent theme) to the document.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("prism-no-motion", settings.reducedMotion);
+    root.dataset.accent = settings.accent;
+  }, [settings.reducedMotion, settings.accent]);
 
   const activeTab = tabs.find((t) => t.id === activeId) ?? null;
 
@@ -109,7 +111,9 @@ export function ProxyApp() {
           scramFrames.current[id] = frame;
         }
         await frame.go(target);
-        updateTab(id, { title: address, loading: false });
+        updateTab(id, { title: address });
+        // Safety: never leave the skeleton up forever if the load event is swallowed.
+        window.setTimeout(() => updateTab(id, { loading: false }), 12000);
       }
     } catch (err) {
       console.error("[prism] navigate failed:", err);
