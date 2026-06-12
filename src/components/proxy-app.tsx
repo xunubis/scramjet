@@ -265,9 +265,9 @@ export function ProxyApp() {
                     ref={(el) => {
                       iframeRefs.current[t.id] = el;
                     }}
-                    src={t.uvSrc}
+                    src={t.uvSrc || undefined}
                     title={t.title}
-                    className="h-full w-full border-0 bg-white"
+                    className="h-full w-full border-0 bg-background"
                     onLoad={() => updateTab(t.id, { loading: false })}
                     sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation allow-same-origin allow-scripts allow-downloads"
                   />
@@ -278,7 +278,7 @@ export function ProxyApp() {
                         iframeRefs.current[t.id] = el;
                       }}
                       title={t.title}
-                      className="h-full w-full border-0 bg-white"
+                      className="h-full w-full border-0 bg-background"
                       onLoad={() => updateTab(t.id, { loading: false })}
                     />
                     {!t.address && (
@@ -288,6 +288,8 @@ export function ProxyApp() {
                     )}
                   </>
                 )}
+
+                <LoadingSkeleton visible={t.loading && !t.errored && !showBlank} />
 
                 {t.errored && (
                   <div className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm prism-enter">
