@@ -346,6 +346,40 @@ export function ProxyApp() {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Wallpaper-backed skeleton that sits above the iframe while a page loads,
+ * so navigation never flashes white. Fades out when the page is ready.
+ */
+function LoadingSkeleton({ visible }: { visible: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={
+        "pointer-events-none absolute inset-0 z-10 prism-wallpaper transition-opacity duration-500 " +
+        (visible ? "opacity-100" : "opacity-0")
+      }
+    >
+      <div className="mx-auto flex h-full max-w-4xl flex-col gap-5 p-8">
+        <div className="flex items-center gap-3">
+          <div className="prism-skeleton h-9 w-9 rounded-full" />
+          <div className="prism-skeleton h-9 w-full max-w-md rounded-full" />
+        </div>
+        <div className="prism-skeleton h-44 w-full rounded-2xl" />
+        <div className="grid grid-cols-3 gap-4">
+          <div className="prism-skeleton h-28 rounded-xl" />
+          <div className="prism-skeleton h-28 rounded-xl" />
+          <div className="prism-skeleton h-28 rounded-xl" />
+        </div>
+        <div className="prism-skeleton h-4 w-2/3 rounded" />
+        <div className="prism-skeleton h-4 w-1/2 rounded" />
+        <div className="prism-skeleton h-4 w-3/5 rounded" />
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 function TabStrip({
   tabs,
   activeId,
