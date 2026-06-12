@@ -610,6 +610,13 @@ function FooterLinks() {
 
 function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   const [q, setQ] = useState("");
+  const [sugs, setSugs] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(-1);
+  const [leaving, setLeaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const debounceRef = useRef<number | undefined>(undefined);
+  const reqSeq = useRef(0);
   const shortcuts = [
     { label: "GitHub",   url: "github.com",   domain: "github.com" },
     { label: "Discord",  url: "discord.com",  domain: "discord.com" },
@@ -625,16 +632,79 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   ];
   const [ph] = useState(() => placeholders[Math.floor(Math.random() * placeholders.length)]);
 
+  // Instant focus: typing anywhere on the page focuses the search box.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key.length === 1 || e.key === "Backspace") inputRef.current?.focus();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Debounced suggestions via the built-in /api/public/suggest relay.
+  useEffect(() => {
+    window.clearTimeout(debounceRef.current);
+    const v = q.trim();
+    if (!v || /^https?:\/\//i.test(v)) {
+      setSugs([]);
+      setOpen(false);
+      setHi(-1);
+      return;
+    }
+    debounceRef.current = window.setTimeout(async () => {
+      const seq = ++reqSeq.current;
+      try {
+        const res = await fetch(`/api/public/suggest?q=${encodeURIComponent(v)}`);
+        const list = (await res.json()) as string[];
+        if (seq !== reqSeq.current) return;
+        setSugs(list);
+        setOpen(list.length > 0);
+        setHi(-1);
+      } catch {
+        /* suggestions are best-effort */
+      }
+    }, 140);
+    return () => window.clearTimeout(debounceRef.current);
+  }, [q]);
+
+  function go(value: string) {
+    const v = value.trim();
+    if (!v || leaving) return;
+    setLeaving(true);
+    setOpen(false);
+    window.setTimeout(() => onPick(v), 180);
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const v = q.trim();
-    if (!v) return;
-    onPick(v);
+    go(hi >= 0 && sugs[hi] ? sugs[hi] : q);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (!open || sugs.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHi((h) => (h + 1) % sugs.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHi((h) => (h <= 0 ? sugs.length - 1 : h - 1));
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setHi(-1);
+    }
   }
 
   return (
     <div className="relative flex h-full flex-col items-center justify-center px-6 text-center prism-wallpaper">
-      <div className="prism-enter flex w-full max-w-3xl flex-col items-center">
+      <div
+        className={
+          "prism-enter flex w-full max-w-3xl flex-col items-center " +
+          (leaving ? "prism-leave" : "")
+        }
+      >
         <h1
           className="select-none text-5xl font-bold tracking-tight text-foreground/90 sm:text-7xl"
           style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.035em" }}
@@ -642,26 +712,60 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
           Welcome to Prism
         </h1>
 
-        <form
-          onSubmit={submit}
-          className="prism-smooth mt-14 flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-black/40 px-6 py-5 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur focus-within:border-white/15 focus-within:bg-black/50"
-        >
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search DuckDuckGo or type an URL"
-            className="w-full bg-transparent text-center text-lg italic outline-none placeholder:text-muted-foreground/70"
-            autoFocus
-            spellCheck={false}
-          />
-        </form>
+        <div className="relative mt-14 w-full">
+          <form
+            onSubmit={submit}
+            className="prism-smooth flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-black/40 px-6 py-5 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur focus-within:border-white/15 focus-within:bg-black/50"
+          >
+            <input
+              ref={inputRef}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={onKeyDown}
+              onFocus={() => sugs.length > 0 && setOpen(true)}
+              onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+              placeholder="Search DuckDuckGo or type an URL"
+              className="w-full bg-transparent text-center text-lg italic outline-none placeholder:text-muted-foreground/70"
+              autoFocus
+              spellCheck={false}
+            />
+          </form>
+
+          {open && (
+            <div
+              className="prism-enter absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-popover/95 py-1.5 text-left shadow-[0_24px_70px_-30px_rgba(0,0,0,0.9)] backdrop-blur"
+              style={{ animationDuration: "180ms" }}
+            >
+              {sugs.map((s, i) => (
+                <button
+                  key={s}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    go(s);
+                  }}
+                  onMouseEnter={() => setHi(i)}
+                  className={
+                    "prism-smooth flex w-full items-center gap-3 px-5 py-2.5 text-sm " +
+                    (i === hi
+                      ? "bg-white/[0.07] text-foreground"
+                      : "text-muted-foreground")
+                  }
+                >
+                  <Search className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                  <span className="truncate">{s}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <p className="mt-3 text-sm text-muted-foreground/60">{ph}</p>
 
         <div className="mt-14 flex flex-wrap items-start justify-center gap-6">
           {shortcuts.map((s) => (
             <button
               key={s.label}
-              onClick={() => onPick(s.url)}
+              onClick={() => go(s.url)}
               className="prism-smooth group flex w-20 flex-col items-center gap-2"
             >
               <span className="prism-smooth flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/5 bg-white/[0.03] group-hover:-translate-y-0.5 group-hover:border-white/20 group-hover:bg-white/[0.06]">
