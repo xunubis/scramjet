@@ -20,6 +20,15 @@
 
 export type ProxyEngine = "uv" | "scramjet";
 
+export type PrismAccent = "mint" | "violet" | "amber" | "rose";
+
+export const ACCENTS: { id: PrismAccent; label: string; swatch: string }[] = [
+  { id: "mint", label: "Mint", swatch: "oklch(0.78 0.15 150)" },
+  { id: "violet", label: "Violet", swatch: "oklch(0.74 0.16 295)" },
+  { id: "amber", label: "Amber", swatch: "oklch(0.82 0.14 80)" },
+  { id: "rose", label: "Rose", swatch: "oklch(0.72 0.18 15)" },
+];
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
   interface Window {
@@ -44,6 +53,8 @@ export interface ProxySettings {
   bareUrl: string;
   wispUrl: string;
   defaultEngine: ProxyEngine;
+  reducedMotion: boolean;
+  accent: PrismAccent;
 }
 
 export const BUILT_IN_BARE_PATH = "/api/public/bare/";
@@ -59,6 +70,8 @@ export const DEFAULT_SETTINGS: ProxySettings = {
   bareUrl: BUILT_IN_BARE_PATH,
   wispUrl: DEFAULT_WISP_URL,
   defaultEngine: "uv",
+  reducedMotion: false,
+  accent: "mint",
 };
 
 export function loadSettings(): ProxySettings {
@@ -247,6 +260,43 @@ export function ensureScramjetReady(wispUrl: string): Promise<any> {
 export async function createScramjetFrame(iframeEl: HTMLIFrameElement, wispUrl: string) {
   const controller = await ensureScramjetReady(wispUrl);
   return controller.createFrame(iframeEl, { plugins: [] });
+}
+
+/** Warm BOTH engines in the background so first navigation feels instant. */
+export function prewarmEngines(s: ProxySettings) {
+  void ensureUltravioletReady(s.bareUrl).catch((e) =>
+    console.warn("[prism] UV prewarm failed:", e),
+  );
+  void ensureScramjetReady(s.wispUrl).catch((e) =>
+    console.warn("[prism] Scramjet prewarm failed:", e),
+  );
+}
+
+/**
+ * Clear all proxy state: service workers, CacheStorage, and localStorage
+ * junk written by the engines. The user's settings are preserved.
+ */
+export async function clearProxyState(): Promise<void> {
+  swPromise = null;
+  uvPromise = null;
+  scramjetPromise = null;
+  try {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch { /* ignore */ }
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch { /* ignore */ }
+  try {
+    const keep = window.localStorage.getItem(SETTINGS_KEY);
+    window.localStorage.clear();
+    if (keep !== null) window.localStorage.setItem(SETTINGS_KEY, keep);
+  } catch { /* ignore */ }
 }
 
 /* -------------------------------------------------------------------------- */
