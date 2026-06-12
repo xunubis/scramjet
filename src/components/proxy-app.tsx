@@ -516,6 +516,58 @@ function NavIconBtn({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+
+function SideRail({
+  onHome,
+  onGames,
+  onApps,
+  onTools,
+  onDiscord,
+  onSettings,
+}: {
+  onHome: () => void;
+  onGames: () => void;
+  onApps: () => void;
+  onTools: () => void;
+  onDiscord: () => void;
+  onSettings: () => void;
+}) {
+  const items: { label: string; icon: React.ReactNode; onClick: () => void }[] = [
+    { label: "Home",     icon: <HomeIcon className="h-5 w-5" />,       onClick: onHome },
+    { label: "Games",    icon: <Gamepad2 className="h-5 w-5" />,       onClick: onGames },
+    { label: "Apps",     icon: <Layers className="h-5 w-5" />,         onClick: onApps },
+    { label: "Tools",    icon: <Wrench className="h-5 w-5" />,         onClick: onTools },
+    { label: "Discord",  icon: <MessageCircle className="h-5 w-5" />,  onClick: onDiscord },
+    { label: "Settings", icon: <SettingsIcon className="h-5 w-5" />,   onClick: onSettings },
+  ];
+  return (
+    <nav className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1 rounded-2xl border border-white/5 bg-black/40 p-2 backdrop-blur">
+      {items.map((it) => (
+        <button
+          key={it.label}
+          onClick={it.onClick}
+          aria-label={it.label}
+          title={it.label}
+          className="prism-smooth flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:-translate-y-0.5 hover:bg-white/[0.06] hover:text-foreground"
+        >
+          {it.icon}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function FooterLinks() {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-6 text-xs text-muted-foreground/60">
+      <a href="#" className="pointer-events-auto prism-smooth hover:text-foreground">credits</a>
+      <span className="text-muted-foreground/30">/</span>
+      <a href="#" className="pointer-events-auto prism-smooth hover:text-foreground">dmca</a>
+    </div>
+  );
+}
+
 function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   const [q, setQ] = useState("");
   const shortcuts = [
