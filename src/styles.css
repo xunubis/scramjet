@@ -153,8 +153,33 @@
   }
 }
 
-/* --- Desktop wallpaper backdrop ------------------------------------------ */
+/* --- Truffled-style backdrop -------------------------------------------- */
 
 .prism-wallpaper {
-  background: var(--gradient-wallpaper);
+  background-color: oklch(0.14 0.012 220);
+  background-image:
+    linear-gradient(to right,  oklch(1 0 0 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 0.035) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 30%, oklch(0.22 0.04 200 / 0.55), transparent 60%);
+  background-size: 44px 44px, 44px 44px, 100% 100%;
+}
+
+/* Smooth, springy default transitions for interactive chrome. */
+.prism-smooth {
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    opacity 220ms ease,
+    box-shadow 280ms ease;
+}
+
+@keyframes prism-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.prism-enter {
+  animation: prism-fade-up 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
