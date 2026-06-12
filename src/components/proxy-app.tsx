@@ -1,5 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Home as HomeIcon,
+  Gamepad2,
+  Layers,
+  Wrench,
+  MessageCircle,
+  Settings as SettingsIcon,
+  ArrowLeft,
+  ArrowRight,
+  RotateCw,
+  Search,
+  X,
+  Plus,
+} from "lucide-react";
+import {
   buildUvUrl,
   createScramjetFrame,
   DEFAULT_SETTINGS,
@@ -203,7 +217,7 @@ export function ProxyApp() {
     <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <div className="absolute inset-0 prism-wallpaper" aria-hidden />
 
-      <div className="relative z-10 flex flex-col h-full">
+      <div className="relative z-10 flex h-full flex-col pr-14">
         <TabStrip
           tabs={tabs}
           activeId={activeId}
@@ -272,7 +286,7 @@ export function ProxyApp() {
                 )}
 
                 {t.errored && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm">
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm prism-enter">
                     <div className="max-w-md rounded-2xl border border-destructive/40 bg-card/90 p-6 text-center shadow-xl">
                       <p className="text-sm text-destructive">
                         Failed to load through {engineLabel(t.engine)}.
@@ -284,7 +298,7 @@ export function ProxyApp() {
                       )}
                       <button
                         onClick={() => fallback(t.id)}
-                        className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                        className="prism-smooth mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
                       >
                         Retry with {engineLabel(otherEngine(t.engine))}
                       </button>
@@ -296,6 +310,15 @@ export function ProxyApp() {
           })}
         </div>
       </div>
+
+      <SideRail
+        onHome={() => activeTab && home(activeTab.id)}
+        onSettings={() => setSettingsOpen(true)}
+        onGames={() => activeTab && navigate(activeTab.id, "https://now.gg")}
+        onApps={() => activeTab && navigate(activeTab.id, "https://github.com/topics/proxy")}
+        onTools={() => activeTab && navigate(activeTab.id, "https://duckduckgo.com")}
+        onDiscord={() => activeTab && navigate(activeTab.id, "https://discord.com")}
+      />
 
       {settingsOpen && (
         <SettingsSheet
@@ -309,6 +332,8 @@ export function ProxyApp() {
           }}
         />
       )}
+
+      <FooterLinks />
     </div>
   );
 }
@@ -329,7 +354,7 @@ function TabStrip({
   onAdd: () => void;
 }) {
   return (
-    <div className="flex items-center gap-1 border-b border-border/40 bg-background/40 px-2 pt-2 backdrop-blur">
+    <div className="flex items-center gap-1 border-b border-white/5 bg-background/40 px-2 pt-2 backdrop-blur">
       {tabs.map((t) => {
         const active = t.id === activeId;
         return (
@@ -337,10 +362,10 @@ function TabStrip({
             key={t.id}
             onClick={() => onSelect(t.id)}
             className={
-              "group flex max-w-[220px] min-w-[140px] items-center gap-2 rounded-t-md px-3 py-1.5 text-xs transition " +
+              "prism-smooth group flex max-w-[220px] min-w-[140px] items-center gap-2 rounded-t-md px-3 py-1.5 text-xs " +
               (active
-                ? "bg-card/80 text-foreground"
-                : "bg-transparent text-muted-foreground hover:bg-card/40 hover:text-foreground")
+                ? "bg-white/5 text-foreground"
+                : "bg-transparent text-muted-foreground hover:bg-white/[0.03] hover:text-foreground")
             }
           >
             <span
@@ -363,20 +388,20 @@ function TabStrip({
                 e.stopPropagation();
                 onClose(t.id);
               }}
-              className="ml-1 rounded px-1 text-muted-foreground opacity-70 hover:bg-background hover:text-foreground hover:opacity-100"
+              className="prism-smooth ml-1 rounded px-1 text-muted-foreground opacity-70 hover:bg-background hover:text-foreground hover:opacity-100"
               aria-label="Close tab"
             >
-              ×
+              <X className="h-3 w-3" />
             </span>
           </button>
         );
       })}
       <button
         onClick={onAdd}
-        className="ml-1 rounded-md px-2 py-1 text-base text-muted-foreground hover:bg-card/60 hover:text-foreground"
+        className="prism-smooth ml-1 flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground"
         aria-label="New tab"
       >
-        +
+        <Plus className="h-4 w-4" />
       </button>
     </div>
   );
@@ -407,21 +432,21 @@ function AddressBar({
   useEffect(() => setValue(tab.address), [tab.id, tab.address]);
 
   return (
-    <div className="flex items-center gap-2 border-b border-border/40 bg-background/40 px-3 py-2 backdrop-blur">
+    <div className="flex items-center gap-2 border-b border-white/5 bg-background/40 px-3 py-2 backdrop-blur">
       <div className="flex items-center gap-1 pr-1 text-muted-foreground">
-        <NavIconBtn label="Back" onClick={onBack}>←</NavIconBtn>
-        <NavIconBtn label="Forward" onClick={onForward}>→</NavIconBtn>
-        <NavIconBtn label="Reload" onClick={onReload}>↻</NavIconBtn>
-        <NavIconBtn label="Home" onClick={onHome}>⌂</NavIconBtn>
+        <NavIconBtn label="Back" onClick={onBack}><ArrowLeft className="h-4 w-4" /></NavIconBtn>
+        <NavIconBtn label="Forward" onClick={onForward}><ArrowRight className="h-4 w-4" /></NavIconBtn>
+        <NavIconBtn label="Reload" onClick={onReload}><RotateCw className="h-4 w-4" /></NavIconBtn>
+        <NavIconBtn label="Home" onClick={onHome}><HomeIcon className="h-4 w-4" /></NavIconBtn>
       </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           onNavigate(value);
         }}
-        className="flex flex-1 items-center gap-2 rounded-full border border-primary/30 bg-card/60 px-4 py-1.5 backdrop-blur focus-within:border-primary/60"
+        className="prism-smooth flex flex-1 items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5 backdrop-blur focus-within:border-white/30 focus-within:bg-white/[0.05]"
       >
-        <span className="text-muted-foreground" aria-hidden>✦</span>
+        <Search className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -434,14 +459,14 @@ function AddressBar({
         )}
       </form>
 
-      <div className="flex overflow-hidden rounded-full border border-border/60 text-[11px]">
+      <div className="prism-smooth flex overflow-hidden rounded-full border border-white/10 text-[11px]">
         <button
           onClick={() => onSwitch("uv")}
           className={
-            "px-2.5 py-1 transition " +
+            "prism-smooth px-2.5 py-1 " +
             (tab.engine === "uv"
-              ? "bg-primary text-primary-foreground"
-              : "bg-transparent text-muted-foreground hover:bg-card/60 hover:text-foreground")
+              ? "bg-white/10 text-foreground"
+              : "bg-transparent text-muted-foreground hover:bg-white/[0.05] hover:text-foreground")
           }
         >
           UV
@@ -449,10 +474,10 @@ function AddressBar({
         <button
           onClick={() => onSwitch("scramjet")}
           className={
-            "px-2.5 py-1 transition " +
+            "prism-smooth px-2.5 py-1 " +
             (tab.engine === "scramjet"
-              ? "bg-accent text-accent-foreground"
-              : "bg-transparent text-muted-foreground hover:bg-card/60 hover:text-foreground")
+              ? "bg-white/10 text-foreground"
+              : "bg-transparent text-muted-foreground hover:bg-white/[0.05] hover:text-foreground")
           }
         >
           SJ
@@ -462,16 +487,10 @@ function AddressBar({
       <button
         onClick={onFallback}
         disabled={!tab.address}
-        className="rounded-full border border-border/60 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-card/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        className="prism-smooth rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-white/[0.05] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         title="Reload through the other engine"
       >
         ↻ Fallback
-      </button>
-      <button
-        onClick={onSettings}
-        className="rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:bg-card/60 hover:text-foreground"
-      >
-        ⚙
       </button>
     </div>
   );
@@ -490,7 +509,7 @@ function NavIconBtn({
     <button
       onClick={onClick}
       aria-label={label}
-      className="flex h-8 w-8 items-center justify-center rounded-full text-base text-muted-foreground hover:bg-card/60 hover:text-foreground"
+      className="prism-smooth flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-white/[0.05] hover:text-foreground"
     >
       {children}
     </button>
@@ -500,15 +519,19 @@ function NavIconBtn({
 function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   const [q, setQ] = useState("");
   const shortcuts = [
-    { label: "YouTube", url: "youtube.com", domain: "youtube.com" },
-    { label: "Discord", url: "discord.com", domain: "discord.com" },
-    { label: "GitHub", url: "github.com", domain: "github.com" },
-    { label: "Reddit", url: "reddit.com", domain: "reddit.com" },
-    { label: "Wikipedia", url: "wikipedia.org", domain: "wikipedia.org" },
-    { label: "Spotify", url: "open.spotify.com", domain: "spotify.com" },
-    { label: "Twitch", url: "twitch.tv", domain: "twitch.tv" },
-    { label: "X", url: "x.com", domain: "x.com" },
+    { label: "GitHub",   url: "github.com",   domain: "github.com" },
+    { label: "Discord",  url: "discord.com",  domain: "discord.com" },
+    { label: "YouTube",  url: "youtube.com",  domain: "youtube.com" },
+    { label: "Reanime",  url: "reanime.app",  domain: "reanime.app" },
   ];
+  const placeholders = [
+    "barber shop",
+    "anime tonight",
+    "best lofi playlist",
+    "github trending",
+    "weather near me",
+  ];
+  const [ph] = useState(() => placeholders[Math.floor(Math.random() * placeholders.length)]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -518,74 +541,53 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   }
 
   return (
-    <div className="relative flex h-full flex-col items-center justify-center bg-background px-6 text-center prism-wallpaper">
-      <h1
-        className="select-none text-6xl font-semibold tracking-tight sm:text-7xl"
-        style={{
-          fontFamily: "var(--font-display)",
-          letterSpacing: "-0.03em",
-        }}
-      >
-        Prism
-        <span style={{ color: "var(--primary)" }}>.</span>
-      </h1>
-      <p className="mt-3 text-xs uppercase tracking-[0.3em] text-muted-foreground">
-        a calm corner of the web
-      </p>
-
-      <form
-        onSubmit={submit}
-        className="mt-10 flex w-full max-w-2xl items-center gap-3 rounded-full border bg-card/40 px-5 py-3 backdrop-blur transition focus-within:border-primary/60"
-        style={{ borderColor: "color-mix(in oklab, var(--primary) 35%, transparent)" }}
-      >
-        <div
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-primary-foreground"
-          style={{
-            background: "var(--primary)",
-            boxShadow: "0 0 18px color-mix(in oklab, var(--primary) 60%, transparent)",
-          }}
-          aria-hidden
+    <div className="relative flex h-full flex-col items-center justify-center px-6 text-center prism-wallpaper">
+      <div className="prism-enter flex w-full max-w-3xl flex-col items-center">
+        <h1
+          className="select-none text-5xl font-bold tracking-tight text-foreground/90 sm:text-7xl"
+          style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.035em" }}
         >
-          ✦
-        </div>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search DuckDuckGo or type a URL…"
-          className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
-          autoFocus
-          spellCheck={false}
-        />
-      </form>
+          Welcome to Prism
+        </h1>
 
-      <div className="mt-12 flex flex-wrap items-start justify-center gap-5">
-        {shortcuts.map((s) => (
-          <button
-            key={s.label}
-            onClick={() => onPick(s.url)}
-            className="group flex w-20 flex-col items-center gap-2"
-          >
-            <span
-              className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border bg-card/60 transition group-hover:scale-105 group-hover:border-primary/60"
-              style={{
-                borderColor: "color-mix(in oklab, var(--foreground) 10%, transparent)",
-                boxShadow: "0 6px 20px -12px rgba(0,0,0,0.6)",
-              }}
+        <form
+          onSubmit={submit}
+          className="prism-smooth mt-14 flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-black/40 px-6 py-5 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur focus-within:border-white/15 focus-within:bg-black/50"
+        >
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search DuckDuckGo or type an URL"
+            className="w-full bg-transparent text-center text-lg italic outline-none placeholder:text-muted-foreground/70"
+            autoFocus
+            spellCheck={false}
+          />
+        </form>
+        <p className="mt-3 text-sm text-muted-foreground/60">{ph}</p>
+
+        <div className="mt-14 flex flex-wrap items-start justify-center gap-6">
+          {shortcuts.map((s) => (
+            <button
+              key={s.label}
+              onClick={() => onPick(s.url)}
+              className="prism-smooth group flex w-20 flex-col items-center gap-2"
             >
-              <img
-                src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`}
-                alt=""
-                width={32}
-                height={32}
-                loading="lazy"
-                className="h-8 w-8"
-              />
-            </span>
-            <span className="text-xs text-muted-foreground group-hover:text-foreground">
-              {s.label}
-            </span>
-          </button>
-        ))}
+              <span className="prism-smooth flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/5 bg-white/[0.03] group-hover:-translate-y-0.5 group-hover:border-white/20 group-hover:bg-white/[0.06]">
+                <img
+                  src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`}
+                  alt=""
+                  width={32}
+                  height={32}
+                  loading="lazy"
+                  className="h-8 w-8"
+                />
+              </span>
+              <span className="text-xs text-muted-foreground group-hover:text-foreground">
+                {s.label}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
