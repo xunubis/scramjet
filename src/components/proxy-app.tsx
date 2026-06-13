@@ -13,6 +13,9 @@ import {
   X,
   Plus,
   Trash2,
+  Star,
+  EyeOff,
+  ExternalLink,
 } from "lucide-react";
 import {
   ACCENTS,
@@ -31,6 +34,21 @@ import {
   saveSettings,
   updateBareTransport,
 } from "@/lib/proxy";
+import {
+  applyCloak,
+  CLOAK_PRESETS,
+  type Bookmark,
+  type CloakConfig,
+  type CloakPreset,
+  type PanicConfig,
+  loadBookmarks,
+  loadCloak,
+  loadPanic,
+  openAboutBlank,
+  saveBookmarks,
+  saveCloak,
+  savePanic,
+} from "@/lib/prism-features";
 
 interface Tab {
   id: string;
@@ -63,6 +81,9 @@ export function ProxyApp() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [cloak, setCloak] = useState<CloakConfig>({ preset: "none" });
+  const [panic, setPanic] = useState<PanicConfig>({ key: "`", url: "https://classroom.google.com/" });
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
 
   const iframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
   /** scramjet Frame instances per tab id */
@@ -76,7 +97,27 @@ export function ProxyApp() {
     setActiveId(first.id);
     // Pre-warm BOTH engines so first navigation and engine switches feel instant.
     prewarmEngines(s);
+    const c = loadCloak();
+    setCloak(c);
+    applyCloak(c);
+    setPanic(loadPanic());
+    setBookmarks(loadBookmarks());
   }, []);
+
+  // Panic key — instantly redirects the whole window away from Prism.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!panic.key) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key === panic.key) {
+        e.preventDefault();
+        window.location.replace(panic.url || "https://www.google.com/");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panic]);
 
   // Apply appearance settings (reduced motion + accent theme) to the document.
   useEffect(() => {
@@ -338,11 +379,15 @@ export function ProxyApp() {
         onApps={() => activeTab && navigate(activeTab.id, "https://github.com/topics/proxy")}
         onTools={() => activeTab && navigate(activeTab.id, "https://duckduckgo.com")}
         onDiscord={() => activeTab && navigate(activeTab.id, "https://discord.com")}
+        onCloak={() => openAboutBlank()}
       />
 
       {settingsOpen && (
         <SettingsSheet
           settings={settings}
+          cloak={cloak}
+          panic={panic}
+          bookmarks={bookmarks}
           onClose={() => setSettingsOpen(false)}
           onSave={(s) => {
             setSettings(s);
@@ -350,6 +395,25 @@ export function ProxyApp() {
             setSettingsOpen(false);
             void updateBareTransport(s.bareUrl);
           }}
+          onCloakChange={(c) => {
+            setCloak(c);
+            saveCloak(c);
+          }}
+          onPanicChange={(p) => {
+            setPanic(p);
+            savePanic(p);
+          }}
+          onBookmarksChange={(b) => {
+            setBookmarks(b);
+            saveBookmarks(b);
+          }}
+        />
+      )}
+
+      {bookmarks.length > 0 && activeTab && (
+        <BookmarksBar
+          bookmarks={bookmarks}
+          onPick={(url) => navigate(activeTab.id, url)}
         />
       )}
 
