@@ -689,6 +689,39 @@ function FooterLinks() {
   );
 }
 
+function BookmarksBar({
+  bookmarks,
+  onPick,
+}: {
+  bookmarks: Bookmark[];
+  onPick: (url: string) => void;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-10 z-10 flex justify-center">
+      <div className="pointer-events-auto flex max-w-[80%] flex-wrap items-center gap-1 rounded-full border border-white/5 bg-black/40 px-2 py-1 text-xs backdrop-blur">
+        {bookmarks.map((b) => (
+          <button
+            key={b.id}
+            onClick={() => onPick(b.url)}
+            className="prism-smooth flex items-center gap-1.5 rounded-full px-2.5 py-1 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+            title={b.url}
+          >
+            <img
+              src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(b.url)}&sz=32`}
+              alt=""
+              width={14}
+              height={14}
+              className="h-3.5 w-3.5"
+              loading="lazy"
+            />
+            <span className="truncate max-w-[140px]">{b.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   const [q, setQ] = useState("");
   const [sugs, setSugs] = useState<string[]>([]);
