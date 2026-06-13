@@ -13,6 +13,9 @@ import {
   X,
   Plus,
   Trash2,
+  Star,
+  EyeOff,
+  ExternalLink,
 } from "lucide-react";
 import {
   ACCENTS,
@@ -31,6 +34,21 @@ import {
   saveSettings,
   updateBareTransport,
 } from "@/lib/proxy";
+import {
+  applyCloak,
+  CLOAK_PRESETS,
+  type Bookmark,
+  type CloakConfig,
+  type CloakPreset,
+  type PanicConfig,
+  loadBookmarks,
+  loadCloak,
+  loadPanic,
+  openAboutBlank,
+  saveBookmarks,
+  saveCloak,
+  savePanic,
+} from "@/lib/prism-features";
 
 interface Tab {
   id: string;
@@ -63,6 +81,9 @@ export function ProxyApp() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [cloak, setCloak] = useState<CloakConfig>({ preset: "none" });
+  const [panic, setPanic] = useState<PanicConfig>({ key: "`", url: "https://classroom.google.com/" });
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
 
   const iframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
   /** scramjet Frame instances per tab id */
@@ -76,7 +97,27 @@ export function ProxyApp() {
     setActiveId(first.id);
     // Pre-warm BOTH engines so first navigation and engine switches feel instant.
     prewarmEngines(s);
+    const c = loadCloak();
+    setCloak(c);
+    applyCloak(c);
+    setPanic(loadPanic());
+    setBookmarks(loadBookmarks());
   }, []);
+
+  // Panic key — instantly redirects the whole window away from Prism.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!panic.key) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key === panic.key) {
+        e.preventDefault();
+        window.location.replace(panic.url || "https://www.google.com/");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panic]);
 
   // Apply appearance settings (reduced motion + accent theme) to the document.
   useEffect(() => {
@@ -338,11 +379,15 @@ export function ProxyApp() {
         onApps={() => activeTab && navigate(activeTab.id, "https://github.com/topics/proxy")}
         onTools={() => activeTab && navigate(activeTab.id, "https://duckduckgo.com")}
         onDiscord={() => activeTab && navigate(activeTab.id, "https://discord.com")}
+        onCloak={() => openAboutBlank()}
       />
 
       {settingsOpen && (
         <SettingsSheet
           settings={settings}
+          cloak={cloak}
+          panic={panic}
+          bookmarks={bookmarks}
           onClose={() => setSettingsOpen(false)}
           onSave={(s) => {
             setSettings(s);
@@ -350,6 +395,25 @@ export function ProxyApp() {
             setSettingsOpen(false);
             void updateBareTransport(s.bareUrl);
           }}
+          onCloakChange={(c) => {
+            setCloak(c);
+            saveCloak(c);
+          }}
+          onPanicChange={(p) => {
+            setPanic(p);
+            savePanic(p);
+          }}
+          onBookmarksChange={(b) => {
+            setBookmarks(b);
+            saveBookmarks(b);
+          }}
+        />
+      )}
+
+      {bookmarks.length > 0 && activeTab && (
+        <BookmarksBar
+          bookmarks={bookmarks}
+          onPick={(url) => navigate(activeTab.id, url)}
         />
       )}
 
@@ -579,6 +643,7 @@ function SideRail({
   onTools,
   onDiscord,
   onSettings,
+  onCloak,
 }: {
   onHome: () => void;
   onGames: () => void;
@@ -586,6 +651,7 @@ function SideRail({
   onTools: () => void;
   onDiscord: () => void;
   onSettings: () => void;
+  onCloak: () => void;
 }) {
   const items: { label: string; icon: React.ReactNode; onClick: () => void }[] = [
     { label: "Home",     icon: <HomeIcon className="h-5 w-5" />,       onClick: onHome },
@@ -593,6 +659,7 @@ function SideRail({
     { label: "Apps",     icon: <Layers className="h-5 w-5" />,         onClick: onApps },
     { label: "Tools",    icon: <Wrench className="h-5 w-5" />,         onClick: onTools },
     { label: "Discord",  icon: <MessageCircle className="h-5 w-5" />,  onClick: onDiscord },
+    { label: "about:blank", icon: <EyeOff className="h-5 w-5" />,      onClick: onCloak },
     { label: "Settings", icon: <SettingsIcon className="h-5 w-5" />,   onClick: onSettings },
   ];
   return (
@@ -618,6 +685,39 @@ function FooterLinks() {
       <a href="#" className="pointer-events-auto prism-smooth hover:text-foreground">credits</a>
       <span className="text-muted-foreground/30">/</span>
       <a href="#" className="pointer-events-auto prism-smooth hover:text-foreground">dmca</a>
+    </div>
+  );
+}
+
+function BookmarksBar({
+  bookmarks,
+  onPick,
+}: {
+  bookmarks: Bookmark[];
+  onPick: (url: string) => void;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-10 z-10 flex justify-center">
+      <div className="pointer-events-auto flex max-w-[80%] flex-wrap items-center gap-1 rounded-full border border-white/5 bg-black/40 px-2 py-1 text-xs backdrop-blur">
+        {bookmarks.map((b) => (
+          <button
+            key={b.id}
+            onClick={() => onPick(b.url)}
+            className="prism-smooth flex items-center gap-1.5 rounded-full px-2.5 py-1 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+            title={b.url}
+          >
+            <img
+              src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(b.url)}&sz=32`}
+              alt=""
+              width={14}
+              height={14}
+              className="h-3.5 w-3.5"
+              loading="lazy"
+            />
+            <span className="truncate max-w-[140px]">{b.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -805,15 +905,29 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
 
 function SettingsSheet({
   settings,
+  cloak,
+  panic,
+  bookmarks,
   onClose,
   onSave,
+  onCloakChange,
+  onPanicChange,
+  onBookmarksChange,
 }: {
   settings: ProxySettings;
+  cloak: CloakConfig;
+  panic: PanicConfig;
+  bookmarks: Bookmark[];
   onClose: () => void;
   onSave: (s: ProxySettings) => void;
+  onCloakChange: (c: CloakConfig) => void;
+  onPanicChange: (p: PanicConfig) => void;
+  onBookmarksChange: (b: Bookmark[]) => void;
 }) {
   const [draft, setDraft] = useState(settings);
   const [clearing, setClearing] = useState(false);
+  const [bmLabel, setBmLabel] = useState("");
+  const [bmUrl, setBmUrl] = useState("");
 
   async function clearData() {
     setClearing(true);
@@ -901,6 +1015,114 @@ function SettingsSheet({
               ))}
             </div>
           </div>
+
+          {/* Cloaking */}
+          <div>
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Tab cloak
+            </label>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {(Object.keys(CLOAK_PRESETS) as CloakPreset[]).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => onCloakChange({ ...cloak, preset: k })}
+                  className={
+                    "prism-smooth rounded-md border px-2 py-1.5 text-xs " +
+                    (cloak.preset === k
+                      ? "border-primary bg-primary/15 text-foreground"
+                      : "border-border/60 text-muted-foreground hover:bg-secondary")
+                  }
+                >
+                  {CLOAK_PRESETS[k].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Panic key */}
+          <div className="rounded-md border border-border/60 p-3">
+            <p className="text-sm">Panic key</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Press this key anywhere to redirect away instantly.
+            </p>
+            <div className="mt-2 grid grid-cols-[80px_1fr] gap-2">
+              <input
+                value={panic.key}
+                onChange={(e) => onPanicChange({ ...panic, key: e.target.value.slice(0, 12) })}
+                placeholder="`"
+                className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-center text-sm outline-none"
+              />
+              <input
+                value={panic.url}
+                onChange={(e) => onPanicChange({ ...panic, url: e.target.value })}
+                placeholder="https://classroom.google.com/"
+                className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Bookmarks */}
+          <div className="rounded-md border border-border/60 p-3">
+            <p className="text-sm">Bookmarks</p>
+            <div className="mt-2 space-y-1.5">
+              {bookmarks.length === 0 && (
+                <p className="text-xs text-muted-foreground">No bookmarks yet.</p>
+              )}
+              {bookmarks.map((b) => (
+                <div
+                  key={b.id}
+                  className="flex items-center gap-2 rounded-md bg-secondary/50 px-2 py-1 text-xs"
+                >
+                  <Star className="h-3 w-3 shrink-0 text-primary" />
+                  <span className="truncate">{b.label}</span>
+                  <span className="ml-auto truncate text-muted-foreground">{b.url}</span>
+                  <button
+                    onClick={() => onBookmarksChange(bookmarks.filter((x) => x.id !== b.id))}
+                    className="rounded p-0.5 text-muted-foreground hover:bg-background"
+                    aria-label="Remove"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 grid grid-cols-[1fr_1.4fr_auto] gap-2">
+              <input
+                value={bmLabel}
+                onChange={(e) => setBmLabel(e.target.value)}
+                placeholder="Label"
+                className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm outline-none"
+              />
+              <input
+                value={bmUrl}
+                onChange={(e) => setBmUrl(e.target.value)}
+                placeholder="https://…"
+                className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm outline-none"
+              />
+              <button
+                onClick={() => {
+                  if (!bmLabel.trim() || !bmUrl.trim()) return;
+                  onBookmarksChange([
+                    ...bookmarks,
+                    { id: crypto.randomUUID(), label: bmLabel.trim(), url: bmUrl.trim() },
+                  ]);
+                  setBmLabel("");
+                  setBmUrl("");
+                }}
+                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={() => openAboutBlank()}
+            className="prism-smooth flex w-full items-center justify-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm text-muted-foreground hover:bg-secondary"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Open in about:blank
+          </button>
 
           <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2.5">
             <div>

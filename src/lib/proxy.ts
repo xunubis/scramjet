@@ -162,7 +162,17 @@ export function ensureUltravioletReady(bareUrl: string): Promise<void> {
     await loadScript("/uv/uv.bundle.js");
     await loadScript("/uv/uv.config.js");
     const conn = new window.BareMux.BareMuxConnection("/baremux/worker.js");
-    await conn.setTransport("/baremod/index.mjs", [bareUrl]);
+    // Prefer epoxy (WASM, ~3x faster than libcurl) over wisp; fall back to
+    // bare-v3 if the wisp endpoint is unreachable. Same stack as the
+    // reference site (Injex v3 / dalen-kff.se).
+    try {
+      await conn.setTransport("/epoxy/index.mjs", [
+        { wisp: DEFAULT_WISP_URL },
+      ]);
+    } catch (e) {
+      console.warn("[prism] epoxy failed, falling back to bare-v3:", e);
+      await conn.setTransport("/baremod/index.mjs", [bareUrl]);
+    }
     window.__prismBareConn = conn;
     await ensureServiceWorker();
   })().catch((err) => {
@@ -222,14 +232,14 @@ export function ensureScramjetReady(wispUrl: string): Promise<any> {
     const transport = new LibcurlClient({ wisp: wispUrl });
 
     // Share the bare-mux multiplexer: point its SharedWorker at the same
-    // libcurl/wisp transport. Now UV's fetches and Scramjet's network share
+    // epoxy/wisp transport. Now UV's fetches and Scramjet's network share
     // one wisp connection pool through the bare-mux SharedWorker.
     try {
       await loadScript("/baremux/index.js");
       if (!window.__prismBareConn) {
         window.__prismBareConn = new window.BareMux.BareMuxConnection("/baremux/worker.js");
       }
-      await window.__prismBareConn.setTransport("/libcurl/index.mjs", [{ wisp: wispUrl }]);
+      await window.__prismBareConn.setTransport("/epoxy/index.mjs", [{ wisp: wispUrl }]);
     } catch (e) {
       console.warn("[prism] bare-mux multiplexer setup for scramjet failed:", e);
     }
