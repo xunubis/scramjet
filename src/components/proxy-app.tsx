@@ -643,6 +643,7 @@ function SideRail({
   onTools,
   onDiscord,
   onSettings,
+  onCloak,
 }: {
   onHome: () => void;
   onGames: () => void;
@@ -650,6 +651,7 @@ function SideRail({
   onTools: () => void;
   onDiscord: () => void;
   onSettings: () => void;
+  onCloak: () => void;
 }) {
   const items: { label: string; icon: React.ReactNode; onClick: () => void }[] = [
     { label: "Home",     icon: <HomeIcon className="h-5 w-5" />,       onClick: onHome },
@@ -657,6 +659,7 @@ function SideRail({
     { label: "Apps",     icon: <Layers className="h-5 w-5" />,         onClick: onApps },
     { label: "Tools",    icon: <Wrench className="h-5 w-5" />,         onClick: onTools },
     { label: "Discord",  icon: <MessageCircle className="h-5 w-5" />,  onClick: onDiscord },
+    { label: "about:blank", icon: <EyeOff className="h-5 w-5" />,      onClick: onCloak },
     { label: "Settings", icon: <SettingsIcon className="h-5 w-5" />,   onClick: onSettings },
   ];
   return (
