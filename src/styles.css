@@ -164,6 +164,101 @@
   background-size: 44px 44px, 44px 44px, 100% 100%;
 }
 
+/* --- Night sky: falling + shooting stars --------------------------------- */
+
+.prism-stars {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Tiny static star field, layered via multiple radial-gradients. */
+.prism-stars::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background-image:
+    radial-gradient(1px 1px at 23% 11%, #fff 99%, transparent 100%),
+    radial-gradient(1px 1px at 71% 19%, #cfe6ff 99%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 42% 37%, #fff 99%, transparent 100%),
+    radial-gradient(1px 1px at 88% 53%, #e6efff 99%, transparent 100%),
+    radial-gradient(1px 1px at 14% 67%, #fff 99%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 56% 78%, #d6e4ff 99%, transparent 100%),
+    radial-gradient(1px 1px at 33% 92%, #fff 99%, transparent 100%),
+    radial-gradient(1px 1px at 79% 86%, #cfe6ff 99%, transparent 100%),
+    radial-gradient(1px 1px at 8% 28%, #fff 99%, transparent 100%),
+    radial-gradient(1px 1px at 64% 47%, #fff 99%, transparent 100%);
+  background-repeat: repeat;
+  background-size: 600px 600px;
+  animation: prism-twinkle 4s ease-in-out infinite alternate;
+  opacity: 0.85;
+}
+
+@keyframes prism-twinkle {
+  from { opacity: 0.45; }
+  to   { opacity: 0.95; }
+}
+
+/* Falling stars: small dots drifting down slowly. */
+.prism-falling {
+  position: absolute;
+  top: -10%;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 6px 1px rgba(255,255,255,0.7);
+  animation: prism-fall linear infinite;
+  opacity: 0;
+}
+
+@keyframes prism-fall {
+  0%   { transform: translateY(0)    translateX(0);    opacity: 0; }
+  10%  { opacity: 0.9; }
+  100% { transform: translateY(110vh) translateX(-40px); opacity: 0; }
+}
+
+/* Shooting stars: bright streaks crossing the sky diagonally. */
+.prism-shoot {
+  position: absolute;
+  top: 20%;
+  left: -10%;
+  width: 140px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 60%, #fff 100%);
+  border-radius: 999px;
+  filter: drop-shadow(0 0 6px rgba(180, 220, 255, 0.9));
+  transform: rotate(18deg);
+  opacity: 0;
+  animation: prism-shoot 7s ease-in infinite;
+}
+
+@keyframes prism-shoot {
+  0%   { transform: translate(0,0) rotate(18deg);              opacity: 0; }
+  5%   { opacity: 1; }
+  40%  { transform: translate(120vw, 40vh) rotate(18deg);      opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.prism-no-motion .prism-falling,
+.prism-no-motion .prism-shoot,
+.prism-no-motion .prism-stars::before {
+  animation: none !important;
+}
+
+/* --- Smoother tab content cross-fade ------------------------------------ */
+
+@keyframes prism-tab-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.998); }
+  to   { opacity: 1; transform: none; }
+}
+
+.prism-tab-enter {
+  animation: prism-tab-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Smooth, springy default transitions for interactive chrome. */
 .prism-smooth {
   transition:

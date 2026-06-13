@@ -220,6 +220,18 @@ export function ProxyApp() {
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <div className="absolute inset-0 prism-wallpaper" aria-hidden />
+      <div className="prism-stars" aria-hidden>
+        <span className="prism-falling" style={{ left: "8%",  animationDuration: "9s",  animationDelay: "0s" }} />
+        <span className="prism-falling" style={{ left: "22%", animationDuration: "13s", animationDelay: "2s" }} />
+        <span className="prism-falling" style={{ left: "37%", animationDuration: "11s", animationDelay: "4s" }} />
+        <span className="prism-falling" style={{ left: "52%", animationDuration: "14s", animationDelay: "1s" }} />
+        <span className="prism-falling" style={{ left: "66%", animationDuration: "10s", animationDelay: "6s" }} />
+        <span className="prism-falling" style={{ left: "78%", animationDuration: "12s", animationDelay: "3s" }} />
+        <span className="prism-falling" style={{ left: "91%", animationDuration: "15s", animationDelay: "5s" }} />
+        <span className="prism-shoot" style={{ top: "12%", animationDelay: "2s",  animationDuration: "8s" }} />
+        <span className="prism-shoot" style={{ top: "34%", animationDelay: "11s", animationDuration: "9s" }} />
+        <span className="prism-shoot" style={{ top: "58%", animationDelay: "20s", animationDuration: "10s" }} />
+      </div>
 
       <div className="relative z-10 flex h-full flex-col pr-14">
         <TabStrip
@@ -254,8 +266,10 @@ export function ProxyApp() {
               <div
                 key={t.id}
                 className={
-                  "absolute inset-0 " +
-                  (t.id === activeId ? "block" : "hidden")
+                  "absolute inset-0 prism-smooth " +
+                  (t.id === activeId
+                    ? "block prism-tab-enter opacity-100"
+                    : "pointer-events-none opacity-0 invisible")
                 }
               >
                 {showBlank ? (
