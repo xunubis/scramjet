@@ -84,6 +84,7 @@ export function ProxyApp() {
   const [cloak, setCloak] = useState<CloakConfig>({ preset: "none" });
   const [panic, setPanic] = useState<PanicConfig>({ key: "`", url: "https://classroom.google.com/" });
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [quickCheck, setQuickCheck] = useState(false);
 
   const iframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
   /** scramjet Frame instances per tab id */
@@ -102,6 +103,32 @@ export function ProxyApp() {
     applyCloak(c);
     setPanic(loadPanic());
     setBookmarks(loadBookmarks());
+    if (typeof window !== "undefined" && !localStorage.getItem("prism-quickcheck-dismissed")) {
+      setQuickCheck(true);
+    }
+  }, []);
+
+  // Shift+Space anywhere focuses the home-tab search box.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.shiftKey && e.code === "Space") {
+        const el = document.querySelector<HTMLInputElement>("[data-prism-search]");
+        if (el) {
+          e.preventDefault();
+          el.focus();
+          el.select();
+        }
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Home-page "settings" pill opens the sheet via custom event.
+  useEffect(() => {
+    const open = () => setSettingsOpen(true);
+    window.addEventListener("prism:open-settings", open);
+    return () => window.removeEventListener("prism:open-settings", open);
   }, []);
 
   // Panic key — instantly redirects the whole window away from Prism.
@@ -417,7 +444,19 @@ export function ProxyApp() {
         />
       )}
 
+      <OnlineUsers />
+      <LiveClock />
       <FooterLinks />
+
+      {quickCheck && (
+        <QuickCheckModal
+          onClose={(dontShow) => {
+            setQuickCheck(false);
+            if (dontShow) localStorage.setItem("prism-quickcheck-dismissed", "1");
+          }}
+          onMini={() => openAboutBlank()}
+        />
+      )}
     </div>
   );
 }
@@ -681,10 +720,104 @@ function SideRail({
 
 function FooterLinks() {
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-6 text-xs text-muted-foreground/60">
-      <a href="#" className="pointer-events-auto prism-smooth hover:text-foreground">credits</a>
-      <span className="text-muted-foreground/30">/</span>
-      <a href="#" className="pointer-events-auto prism-smooth hover:text-foreground">dmca</a>
+    <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-2 text-xs">
+      <a
+        href="https://discord.com"
+        target="_blank"
+        rel="noreferrer"
+        className="pointer-events-auto prism-smooth flex items-center gap-1.5 rounded-full bg-[oklch(0.42_0.22_285)] px-3 py-1.5 font-medium text-white shadow-lg hover:opacity-90"
+      >
+        <MessageCircle className="h-3 w-3" /> discord
+      </a>
+      <a
+        href="https://tiktok.com"
+        target="_blank"
+        rel="noreferrer"
+        className="pointer-events-auto prism-smooth flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 font-medium text-white shadow-lg hover:bg-black/90"
+      >
+        <span className="text-[10px]">♪</span> tiktok
+      </a>
+    </div>
+  );
+}
+
+function OnlineUsers() {
+  const [n, setN] = useState(() => 30 + Math.floor(Math.random() * 40));
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setN((v) => Math.max(20, Math.min(90, v + Math.round((Math.random() - 0.5) * 4))));
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <div className="pointer-events-none absolute left-3 top-2 z-20 text-[11px] font-medium text-primary/90">
+      online users: {n}
+    </div>
+  );
+}
+
+function LiveClock() {
+  const [t, setT] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setT(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const time = t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  return (
+    <div className="pointer-events-none absolute bottom-3 right-16 z-10 text-xs text-muted-foreground/70 tabular-nums">
+      {time}
+    </div>
+  );
+}
+
+function QuickCheckModal({
+  onClose,
+  onMini,
+}: {
+  onClose: (dontShow: boolean) => void;
+  onMini: () => void;
+}) {
+  const [dontShow, setDontShow] = useState(false);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="prism-enter w-full max-w-md rounded-2xl border border-primary/30 bg-card/95 p-6 shadow-2xl">
+        <h2 className="text-center text-2xl font-bold tracking-tight">quick check</h2>
+        <p className="mt-1 text-center text-sm text-muted-foreground">choose mini if u want.</p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            onClick={() => onClose(dontShow)}
+            className="prism-smooth rounded-xl bg-secondary py-3 font-semibold text-secondary-foreground hover:bg-secondary/70"
+          >
+            normal
+          </button>
+          <button
+            onClick={() => {
+              onMini();
+              onClose(dontShow);
+            }}
+            className="prism-smooth rounded-xl bg-primary py-3 font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+          >
+            mini
+          </button>
+        </div>
+        <label className="mt-5 flex cursor-pointer items-center justify-between text-sm text-muted-foreground">
+          <span>don't show again</span>
+          <span
+            onClick={() => setDontShow((v) => !v)}
+            className={
+              "prism-smooth relative inline-flex h-6 w-11 items-center rounded-full " +
+              (dontShow ? "bg-primary" : "bg-white/10")
+            }
+          >
+            <span
+              className={
+                "prism-smooth inline-block h-5 w-5 rounded-full bg-white shadow " +
+                (dontShow ? "translate-x-5" : "translate-x-0.5")
+              }
+            />
+          </span>
+        </label>
+      </div>
     </div>
   );
 }
@@ -812,7 +945,7 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   }
 
   return (
-    <div className="relative flex h-full flex-col items-center justify-center px-6 text-center prism-wallpaper">
+    <div className="prism-glitch relative flex h-full flex-col items-center justify-center px-6 text-center prism-wallpaper">
       <div
         className={
           "prism-enter flex w-full max-w-3xl flex-col items-center " +
@@ -820,26 +953,58 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
         }
       >
         <h1
-          className="select-none text-5xl font-bold tracking-tight text-foreground/90 sm:text-7xl"
-          style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.035em" }}
+          className="select-none text-6xl font-medium tracking-wide text-primary drop-shadow-[0_0_30px_oklch(0.62_0.24_295_/_0.7)] sm:text-7xl"
+          style={{ fontFamily: "var(--font-jp)" }}
         >
-          Welcome to Prism
+          プリズム
         </h1>
+        <p className="mt-2 text-xs font-medium tracking-[0.35em] text-muted-foreground/70">
+          shift + space
+        </p>
+        <p className="mt-8 max-w-xs text-lg text-foreground/80">
+          a smooth, user-friendly<br />web proxy.
+        </p>
 
-        <div className="relative mt-14 w-full">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.focus()}
+            className="prism-smooth flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+          >
+            <Search className="h-4 w-4" /> browse
+          </button>
+          <button
+            type="button"
+            onClick={() => go("https://github.com/topics/proxy")}
+            className="prism-smooth flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+          >
+            <Layers className="h-4 w-4" /> apps
+          </button>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("prism:open-settings"))}
+            className="prism-smooth flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+          >
+            <SettingsIcon className="h-4 w-4" /> settings
+          </button>
+        </div>
+
+        <div className="relative mt-6 w-full max-w-xl">
           <form
             onSubmit={submit}
-            className="prism-smooth flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-black/40 px-6 py-5 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur focus-within:border-white/15 focus-within:bg-black/50"
+            className="prism-smooth flex w-full items-center gap-3 rounded-2xl border border-primary/20 bg-black/50 px-5 py-3.5 shadow-[0_20px_60px_-30px_rgba(120,60,220,0.6)] backdrop-blur focus-within:border-primary/50 focus-within:bg-black/60"
           >
+            <Search className="h-4 w-4 text-primary/70" />
             <input
               ref={inputRef}
+              data-prism-search
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onKeyDown}
               onFocus={() => sugs.length > 0 && setOpen(true)}
               onBlur={() => window.setTimeout(() => setOpen(false), 120)}
-              placeholder="Search DuckDuckGo or type an URL"
-              className="w-full bg-transparent text-center text-lg italic outline-none placeholder:text-muted-foreground/70"
+              placeholder="search or enter a url"
+              className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground/60"
               autoFocus
               spellCheck={false}
             />
@@ -873,9 +1038,24 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
             </div>
           )}
         </div>
-        <p className="mt-3 text-sm text-muted-foreground/60">{ph}</p>
+        <p className="mt-3 text-xs italic text-muted-foreground/50">try "{ph}"</p>
 
-        <div className="mt-14 flex flex-wrap items-start justify-center gap-6">
+        <div className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-1 text-xs">
+          {["search", "credits", "partners", "about:blank"].map((label) => (
+            <button
+              key={label}
+              onClick={() => {
+                if (label === "about:blank") openAboutBlank();
+                else if (label === "search") inputRef.current?.focus();
+              }}
+              className="prism-smooth text-primary/80 underline-offset-4 hover:text-primary hover:underline"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-10 flex flex-wrap items-start justify-center gap-6">
           {shortcuts.map((s) => (
             <button
               key={s.label}
