@@ -713,10 +713,104 @@ function SideRail({
 
 function FooterLinks() {
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-6 text-xs text-muted-foreground/60">
-      <a href="#" className="pointer-events-auto prism-smooth hover:text-foreground">credits</a>
-      <span className="text-muted-foreground/30">/</span>
-      <a href="#" className="pointer-events-auto prism-smooth hover:text-foreground">dmca</a>
+    <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-2 text-xs">
+      <a
+        href="https://discord.com"
+        target="_blank"
+        rel="noreferrer"
+        className="pointer-events-auto prism-smooth flex items-center gap-1.5 rounded-full bg-[oklch(0.42_0.22_285)] px-3 py-1.5 font-medium text-white shadow-lg hover:opacity-90"
+      >
+        <MessageCircle className="h-3 w-3" /> discord
+      </a>
+      <a
+        href="https://tiktok.com"
+        target="_blank"
+        rel="noreferrer"
+        className="pointer-events-auto prism-smooth flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 font-medium text-white shadow-lg hover:bg-black/90"
+      >
+        <span className="text-[10px]">♪</span> tiktok
+      </a>
+    </div>
+  );
+}
+
+function OnlineUsers() {
+  const [n, setN] = useState(() => 30 + Math.floor(Math.random() * 40));
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setN((v) => Math.max(20, Math.min(90, v + Math.round((Math.random() - 0.5) * 4))));
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <div className="pointer-events-none absolute left-3 top-2 z-20 text-[11px] font-medium text-primary/90">
+      online users: {n}
+    </div>
+  );
+}
+
+function LiveClock() {
+  const [t, setT] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setT(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const time = t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  return (
+    <div className="pointer-events-none absolute bottom-3 right-16 z-10 text-xs text-muted-foreground/70 tabular-nums">
+      {time}
+    </div>
+  );
+}
+
+function QuickCheckModal({
+  onClose,
+  onMini,
+}: {
+  onClose: (dontShow: boolean) => void;
+  onMini: () => void;
+}) {
+  const [dontShow, setDontShow] = useState(false);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="prism-enter w-full max-w-md rounded-2xl border border-primary/30 bg-card/95 p-6 shadow-2xl">
+        <h2 className="text-center text-2xl font-bold tracking-tight">quick check</h2>
+        <p className="mt-1 text-center text-sm text-muted-foreground">choose mini if u want.</p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            onClick={() => onClose(dontShow)}
+            className="prism-smooth rounded-xl bg-secondary py-3 font-semibold text-secondary-foreground hover:bg-secondary/70"
+          >
+            normal
+          </button>
+          <button
+            onClick={() => {
+              onMini();
+              onClose(dontShow);
+            }}
+            className="prism-smooth rounded-xl bg-primary py-3 font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+          >
+            mini
+          </button>
+        </div>
+        <label className="mt-5 flex cursor-pointer items-center justify-between text-sm text-muted-foreground">
+          <span>don't show again</span>
+          <span
+            onClick={() => setDontShow((v) => !v)}
+            className={
+              "prism-smooth relative inline-flex h-6 w-11 items-center rounded-full " +
+              (dontShow ? "bg-primary" : "bg-white/10")
+            }
+          >
+            <span
+              className={
+                "prism-smooth inline-block h-5 w-5 rounded-full bg-white shadow " +
+                (dontShow ? "translate-x-5" : "translate-x-0.5")
+              }
+            />
+          </span>
+        </label>
+      </div>
     </div>
   );
 }
