@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "sdk_version": "0.23.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "prism-proxy-mcp",
+      "version": "0.1.0",
+      "title": "Prism Proxy"
+    },
+    "tools": [
+      {
+        "name": "list_engines",
+        "title": "List proxy engines",
+        "description": "List the web-proxy engines this Prism deployment supports and their current versions.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "encode_proxy_url",
+        "title": "Encode proxy URL",
+        "description": "Given a target URL and a Prism deployment origin, return the full proxied URL you can open to browse the target through Prism's Ultraviolet engine.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "The absolute target URL to proxy, e.g. https://example.com/"
+            },
+            "origin": {
+              "type": "string",
+              "format": "uri",
+              "description": "The Prism deployment origin, e.g. https://scramjet.lovable.app"
+            }
+          },
+          "required": [
+            "url",
+            "origin"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_suggestions",
+        "title": "Search suggestions",
+        "description": "Fetch DuckDuckGo autocomplete suggestions for a query, matching the Prism search bar.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Partial search query"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
