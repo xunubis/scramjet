@@ -124,6 +124,13 @@ export function ProxyApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Home-page "settings" pill opens the sheet via custom event.
+  useEffect(() => {
+    const open = () => setSettingsOpen(true);
+    window.addEventListener("prism:open-settings", open);
+    return () => window.removeEventListener("prism:open-settings", open);
+  }, []);
+
   // Panic key — instantly redirects the whole window away from Prism.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
