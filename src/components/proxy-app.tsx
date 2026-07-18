@@ -938,7 +938,7 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
   }
 
   return (
-    <div className="relative flex h-full flex-col items-center justify-center px-6 text-center prism-wallpaper">
+    <div className="prism-glitch relative flex h-full flex-col items-center justify-center px-6 text-center prism-wallpaper">
       <div
         className={
           "prism-enter flex w-full max-w-3xl flex-col items-center " +
@@ -946,26 +946,58 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
         }
       >
         <h1
-          className="select-none text-5xl font-bold tracking-tight text-foreground/90 sm:text-7xl"
-          style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.035em" }}
+          className="select-none text-6xl font-medium tracking-wide text-primary drop-shadow-[0_0_30px_oklch(0.62_0.24_295_/_0.7)] sm:text-7xl"
+          style={{ fontFamily: "var(--font-jp)" }}
         >
-          Welcome to Prism
+          プリズム
         </h1>
+        <p className="mt-2 text-xs font-medium tracking-[0.35em] text-muted-foreground/70">
+          shift + space
+        </p>
+        <p className="mt-8 max-w-xs text-lg text-foreground/80">
+          a smooth, user-friendly<br />web proxy.
+        </p>
 
-        <div className="relative mt-14 w-full">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.focus()}
+            className="prism-smooth flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+          >
+            <Search className="h-4 w-4" /> browse
+          </button>
+          <button
+            type="button"
+            onClick={() => go("https://github.com/topics/proxy")}
+            className="prism-smooth flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+          >
+            <Layers className="h-4 w-4" /> apps
+          </button>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("prism:open-settings"))}
+            className="prism-smooth flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+          >
+            <SettingsIcon className="h-4 w-4" /> settings
+          </button>
+        </div>
+
+        <div className="relative mt-6 w-full max-w-xl">
           <form
             onSubmit={submit}
-            className="prism-smooth flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-black/40 px-6 py-5 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur focus-within:border-white/15 focus-within:bg-black/50"
+            className="prism-smooth flex w-full items-center gap-3 rounded-2xl border border-primary/20 bg-black/50 px-5 py-3.5 shadow-[0_20px_60px_-30px_rgba(120,60,220,0.6)] backdrop-blur focus-within:border-primary/50 focus-within:bg-black/60"
           >
+            <Search className="h-4 w-4 text-primary/70" />
             <input
               ref={inputRef}
+              data-prism-search
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onKeyDown}
               onFocus={() => sugs.length > 0 && setOpen(true)}
               onBlur={() => window.setTimeout(() => setOpen(false), 120)}
-              placeholder="Search DuckDuckGo or type an URL"
-              className="w-full bg-transparent text-center text-lg italic outline-none placeholder:text-muted-foreground/70"
+              placeholder="search or enter a url"
+              className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground/60"
               autoFocus
               spellCheck={false}
             />
@@ -999,9 +1031,24 @@ function BlankTab({ onPick }: { onPick: (url: string) => void }) {
             </div>
           )}
         </div>
-        <p className="mt-3 text-sm text-muted-foreground/60">{ph}</p>
+        <p className="mt-3 text-xs italic text-muted-foreground/50">try "{ph}"</p>
 
-        <div className="mt-14 flex flex-wrap items-start justify-center gap-6">
+        <div className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-1 text-xs">
+          {["search", "credits", "partners", "about:blank"].map((label) => (
+            <button
+              key={label}
+              onClick={() => {
+                if (label === "about:blank") openAboutBlank();
+                else if (label === "search") inputRef.current?.focus();
+              }}
+              className="prism-smooth text-primary/80 underline-offset-4 hover:text-primary hover:underline"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-10 flex flex-wrap items-start justify-center gap-6">
           {shortcuts.map((s) => (
             <button
               key={s.label}
