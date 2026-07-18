@@ -84,6 +84,7 @@ export function ProxyApp() {
   const [cloak, setCloak] = useState<CloakConfig>({ preset: "none" });
   const [panic, setPanic] = useState<PanicConfig>({ key: "`", url: "https://classroom.google.com/" });
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [quickCheck, setQuickCheck] = useState(false);
 
   const iframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
   /** scramjet Frame instances per tab id */
@@ -102,6 +103,25 @@ export function ProxyApp() {
     applyCloak(c);
     setPanic(loadPanic());
     setBookmarks(loadBookmarks());
+    if (typeof window !== "undefined" && !localStorage.getItem("prism-quickcheck-dismissed")) {
+      setQuickCheck(true);
+    }
+  }, []);
+
+  // Shift+Space anywhere focuses the home-tab search box.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.shiftKey && e.code === "Space") {
+        const el = document.querySelector<HTMLInputElement>("[data-prism-search]");
+        if (el) {
+          e.preventDefault();
+          el.focus();
+          el.select();
+        }
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // Panic key — instantly redirects the whole window away from Prism.
@@ -417,7 +437,19 @@ export function ProxyApp() {
         />
       )}
 
+      <OnlineUsers />
+      <LiveClock />
       <FooterLinks />
+
+      {quickCheck && (
+        <QuickCheckModal
+          onClose={(dontShow) => {
+            setQuickCheck(false);
+            if (dontShow) localStorage.setItem("prism-quickcheck-dismissed", "1");
+          }}
+          onMini={() => openAboutBlank()}
+        />
+      )}
     </div>
   );
 }
